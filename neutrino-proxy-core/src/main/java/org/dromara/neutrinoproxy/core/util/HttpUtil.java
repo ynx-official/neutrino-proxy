@@ -37,8 +37,17 @@ public class HttpUtil {
      * @return
      */
     public static String getHeaderValue(String httpContent, String header) {
+        if (!httpContent.contains("\r\n\r\n")) {
+            return null;
+        }
         String headerContent = httpContent.split("\r\n\r\n")[0];
+        if (!headerContent.contains("\r\n")) {
+            return null;
+        }
         String[] lines = headerContent.split("\r\n");
+        if (lines.length == 0) {
+            return null;
+        }
         String firstLine = lines[0];
         if (!(firstLine.endsWith("HTTP/1.1") || firstLine.endsWith("HTTP/1.0"))) {
             return null;

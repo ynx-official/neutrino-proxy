@@ -1,9 +1,8 @@
 package org.dromara.neutrinoproxy.client.core;
 
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.buffer.Unpooled;
+import io.netty.channel.*;
+import io.netty.handler.codec.DecoderException;
 import io.netty.handler.timeout.IdleStateEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.dromara.neutrinoproxy.client.util.ProxyUtil;
@@ -11,6 +10,9 @@ import org.dromara.neutrinoproxy.core.Constants;
 import org.dromara.neutrinoproxy.core.ProxyMessage;
 import org.dromara.neutrinoproxy.core.dispatcher.Dispatcher;
 import org.noear.solon.Solon;
+
+import java.io.IOException;
+import java.net.SocketException;
 
 /**
  * 处理与服务端之间的数据传输
@@ -43,18 +45,43 @@ public class TcpProxyChannelHandler extends SimpleChannelInboundHandler<ProxyMes
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         // 数据传输连接
         Channel realServerChannel = ctx.channel().attr(Constants.NEXT_CHANNEL).get();
-        if (realServerChannel != null && realServerChannel.isActive()) {
-            realServerChannel.close();
+        if (null != realServerChannel && realServerChannel.isActive()) {
+            // realServerChannel.close();
+            realServerChannel.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
         }
 
+        ProxyUtil.returnTcpProxyChanel(ctx.channel());
+        ctx.channel().attr(Constants.NEXT_CHANNEL).remove();
         ProxyUtil.removeTcpProxyChanel(ctx.channel());
+
         super.channelInactive(ctx);
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
-        log.error("[TCP Proxy Channel]Client ProxyChannel Error channelId:{}", ctx.channel().id().asLongText(), cause);
-        ctx.close();
+        // 对于网络IO异常（致命异常），关闭channel以防止资源泄漏
+        // 对于其他异常（可能是可恢复的业务异常），只记录日志
+        if (cause instanceof IOException) {
+            // IOException及其子类（包括SocketException）都是致命的网络异常
+            if (cause instanceof SocketException && cause.getMessage() != null && cause.getMessage().contains("Connection reset")) {
+                // Connection reset是常见的客户端断开，使用debug级别
+                log.debug("[TCP Proxy Channel] Client connection reset: {}", cause.getMessage());
+            } else {
+                log.error("[TCP Proxy Channel] IO Error", cause);
+            }
+            if (ctx.channel().isActive()) {
+                ctx.channel().close();
+            }
+        } else if(cause instanceof DecoderException) {
+            // 协议解析错误，为防止数据污染，立即关闭
+            log.debug("[TCP Proxy Channel] decoder error: {}", cause.getMessage());
+            if (ctx.channel().isActive()) {
+                ctx.channel().close();
+            }
+        } else {
+            // 其他异常只记录日志，不关闭channel，让Netty自己处理
+            log.error("[TCP Proxy Channel] error", cause);
+        }
     }
 
     @Override

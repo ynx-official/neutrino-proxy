@@ -29,7 +29,6 @@
         <revision>2.0.3</revision>
 
         <native.version>0.9.28</native.version>
-
         <java.version>21</java.version>
         <maven-compiler-plugin.version>3.8.0</maven-compiler-plugin.version>
         <maven-flatten.version>1.1.0</maven-flatten.version>

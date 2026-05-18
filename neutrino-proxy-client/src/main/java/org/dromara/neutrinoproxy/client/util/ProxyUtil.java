@@ -180,8 +180,7 @@ public class ProxyUtil {
 	}
 
 	public static ChannelHandler createSslHandler(ProxyConfig proxyConfig) {
-		try {
-			InputStream jksInputStream = FileUtil.getInputStream(proxyConfig.getTunnel().getJksPath());
+		try (InputStream jksInputStream = FileUtil.getInputStream(proxyConfig.getTunnel().getJksPath())) {
 
 			SSLContext clientContext = SSLContext.getInstance("TLS");
 			final KeyStore ks = KeyStore.getInstance("JKS");

@@ -51,7 +51,7 @@ neutrino:
       # 数据库类型，目前支持h2、mysql、mariadb
       type: mysql
       # 数据库连接URL
-      url: jdbc:mysql://mysql:3306/neutrino-proxy?useUnicode=true&characterEncoding=UTF-8&allowMultiQueries=true&useAffectedRows=true&useSSL=false
+      url: jdbc:mysql://mysql:3306/neutrino-proxy?useUnicode=true&characterEncoding=UTF-8&allowMultiQueries=true&useAffectedRows=true&useSSL=false&allowPublicKeyRetrieval=true
       # 数据库用户名
       username: root
       # 数据库密码

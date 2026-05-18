@@ -14,7 +14,6 @@ import org.dromara.neutrinoproxy.server.dal.PortMappingMapper;
 import org.dromara.neutrinoproxy.server.dal.entity.LicenseDO;
 import org.dromara.neutrinoproxy.server.dal.entity.PortMappingDO;
 import org.dromara.neutrinoproxy.server.dal.entity.UserDO;
-import org.dromara.neutrinoproxy.server.proxy.domain.ProxyAttachment;
 import org.dromara.neutrinoproxy.server.service.LicenseService;
 import org.dromara.neutrinoproxy.server.service.UserService;
 import org.dromara.neutrinoproxy.server.util.ProxyUtil;
@@ -87,16 +86,18 @@ public class UdpProxyMessageConnectHandler implements ProxyMessageHandler {
         ctx.channel().attr(Constants.TARGET_PORT).set(portMappingDO.getClientPort());
         ctx.channel().attr(Constants.PROXY_RESPONSES).set(portMappingDO.getProxyResponses());
         ctx.channel().attr(Constants.PROXY_TIMEOUT_MS).set(portMappingDO.getProxyTimeoutMs());
-        visitorChannel.attr(Constants.NEXT_CHANNEL).set(ctx.channel());
+        // 所有udb visitor共用一个visitorChannel，设置这个没啥用
+//        visitorChannel.attr(Constants.NEXT_CHANNEL).set(ctx.channel());
+        ProxyUtil.setVisitorIdToTunnelChannelMap(udpBaseInfo.getVisitorId(), ctx.channel());
         visitorChannel.attr(Constants.IS_UDP_KEY).set(Boolean.TRUE);
 //        // 代理客户端与后端服务器连接成功，修改用户连接为可读状态
 //        visitorChannel.config().setOption(ChannelOption.AUTO_READ, true);
         // 获取代理附加对象
-        ProxyAttachment proxyAttachment = ProxyUtil.getProxyConnectAttachment(udpBaseInfo.getVisitorId());
+        Constants.ProxyAttachment proxyAttachment = ProxyUtil.getProxyConnectAttachment(udpBaseInfo.getVisitorId());
         if (null != proxyAttachment) {
             // 及时释放
             ProxyUtil.remoteProxyConnectAttachment(udpBaseInfo.getVisitorId());
-            proxyAttachment.execute();
+            proxyAttachment.execute(visitorChannel);
         }
     }
 

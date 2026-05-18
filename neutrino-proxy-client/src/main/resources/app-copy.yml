@@ -4,6 +4,9 @@ solon.logging.logger:
 
 neutrino:
   proxy:
+    protocol:
+      # 高低水位线，如：32KB/64KB、32KB/1MB、1MB/5MB
+      # water-mark: 1MB/8MB
     tunnel:
       # 线程池相关配置，用于技术调优，可忽略
       thread-count: 50

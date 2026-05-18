@@ -4,6 +4,7 @@ import io.netty.channel.Channel;
 import io.netty.util.AttributeKey;
 
 import java.net.InetSocketAddress;
+import java.util.function.BiConsumer;
 
 /**
  *
@@ -33,6 +34,8 @@ public interface Constants {
 
     AttributeKey<Boolean> FLOW_LIMITER_FLAG = AttributeKey.newInstance("flowLimiterFlag");
 
+    AttributeKey<ProxyAttachment> PROXY_CONNECT_ATTACHMENT = AttributeKey.newInstance("proxyConnectAttachment");;
+
 
     int HEADER_SIZE = 4;
     int TYPE_SIZE = 1;
@@ -50,5 +53,21 @@ public interface Constants {
         String UDP_TRANSFER = "UDP_TRANSFER";
         String ERROR = "ERROR";
         String PORT_MAPPING_SYNC = "PORT_MAPPING_SYNC";
+    }
+
+    class ProxyAttachment {
+        private byte[] bytes;
+        private BiConsumer<Channel, byte[]> executor;
+
+        public ProxyAttachment(byte[] bytes, BiConsumer<Channel, byte[]> executor) {
+            this.bytes = bytes;
+            this.executor = executor;
+        }
+
+        public void execute(Channel channel) {
+            if (null != executor && null != channel && channel.isActive()) {
+                this.executor.accept(channel, bytes);
+            }
+        }
     }
 }

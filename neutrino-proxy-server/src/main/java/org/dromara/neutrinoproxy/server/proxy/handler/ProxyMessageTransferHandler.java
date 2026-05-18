@@ -38,6 +38,8 @@ public class ProxyMessageTransferHandler implements ProxyMessageHandler {
 					ctx.channel().config().setAutoRead(true);
 				}
 			}
+            // TODO Netty默认的高水位通常只有64KB，在SCP/SFTP场景下可能很快就填满了。
+            // 而visitorChannel.writeAndFlush(buf);是异步的。有可能写入数据极快，而visitorChannel的isWritable还没来得及变成false，此处就会写入大量数据把缓冲撑爆。
 			ByteBuf buf = ctx.alloc().buffer(proxyMessage.getData().length);
 			buf.writeBytes(proxyMessage.getData());
 			visitorChannel.writeAndFlush(buf);

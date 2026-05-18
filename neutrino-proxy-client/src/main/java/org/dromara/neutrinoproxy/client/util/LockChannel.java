@@ -23,6 +23,8 @@ public class LockChannel {
     private long proxyTimeoutMs;
     // 被获取的时间
     private Date takeTime;
-    // 已经响应的次数
+    // 最后一次活跃的时间（最后发生读写的时间）,每次发送或响应需要重置
+    private Date lastActiveTime;
+    // 已经响应的次数(相对于最后一次发送的时，每次发送后需要重置)
     private int responseCount;
 }

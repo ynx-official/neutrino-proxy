@@ -1,8 +1,6 @@
 package org.dromara.neutrinoproxy.client.config;
 
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPipeline;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioDatagramChannel;
@@ -16,7 +14,6 @@ import org.dromara.neutrinoproxy.core.aot.NeutrinoCoreRuntimeNativeRegistrar;
 import org.dromara.neutrinoproxy.core.dispatcher.DefaultDispatcher;
 import org.dromara.neutrinoproxy.core.dispatcher.Dispatcher;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelHandlerContext;
 import org.noear.solon.Solon;
 import org.noear.solon.annotation.Bean;
 import org.noear.solon.annotation.Configuration;
@@ -108,6 +105,12 @@ public class ProxyConfiguration implements LifecycleBean {
         Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(tunnelWorkGroup);
         bootstrap.channel(NioSocketChannel.class);
+
+        WriteBufferWaterMark waterMark = proxyConfig.getWaterMark();
+        if (null != waterMark) {
+            bootstrap.option(ChannelOption.WRITE_BUFFER_WATER_MARK, waterMark);
+        }
+
         bootstrap.remoteAddress(InetSocketAddress.createUnresolved(proxyConfig.getTunnel().getServerIp(), proxyConfig.getTunnel().getServerPort()));
         bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
@@ -165,6 +168,12 @@ public class ProxyConfiguration implements LifecycleBean {
         Bootstrap bootstrap = new Bootstrap();
         bootstrap.group(tcpRealServerWorkGroup);
         bootstrap.channel(NioSocketChannel.class);
+
+        WriteBufferWaterMark waterMark = proxyConfig.getWaterMark();
+        if (null != waterMark) {
+            bootstrap.option(ChannelOption.WRITE_BUFFER_WATER_MARK, waterMark);
+        }
+
         bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
             @Override

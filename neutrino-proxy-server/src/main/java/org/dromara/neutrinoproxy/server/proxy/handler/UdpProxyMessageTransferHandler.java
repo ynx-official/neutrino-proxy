@@ -31,33 +31,31 @@ public class UdpProxyMessageTransferHandler implements ProxyMessageHandler {
         log.debug("[UDP transfer]info:{} data:{}", proxyMessage.getInfo(), new String(proxyMessage.getData()));
 
         Channel visitorChannel = ctx.channel().attr(Constants.NEXT_CHANNEL).get();
-        if (null != visitorChannel) {
+        if (null == visitorChannel) {
+            return;
+        }
 
-            if (!visitorChannel.isWritable()) {
-                //自己不可写，通道可以读，让通道关闭读
-                //自己可写，通道不可以读，让通道打开读
-                if (ctx.channel().config().isAutoRead()) {
-                    ctx.channel().config().setAutoRead(false);
-                }
-            } else {
-                if (ctx.channel().config().isAutoRead()) {
-                    ctx.channel().config().setAutoRead(true);
-                }
+        if (!visitorChannel.isWritable()) {
+            //自己不可写，通道可以读，让通道关闭读
+            //自己可写，通道不可以读，让通道打开读
+            if (ctx.channel().config().isAutoRead()) {
+                ctx.channel().config().setAutoRead(false);
             }
+        } else {
+            if (ctx.channel().config().isAutoRead()) {
+                ctx.channel().config().setAutoRead(true);
+            }
+        }
 
-//            InetSocketAddress address = new InetSocketAddress(udpBaseInfo.getVisitorIp(), udpBaseInfo.getVisitorPort());
-//            ByteBuf byteBuf = Unpooled.copiedBuffer(proxyMessage.getData());
-//            visitorChannel.writeAndFlush(new DatagramPacket(byteBuf, address));
-            InetSocketAddress address = ctx.channel().attr(Constants.SENDER).get();
-            if (null != address) {
-                visitorChannel.writeAndFlush(new DatagramPacket(Unpooled.copiedBuffer(proxyMessage.getData()), address));
-            }
+        InetSocketAddress address = ctx.channel().attr(Constants.SENDER).get();
+        if (null != address) {
+            visitorChannel.writeAndFlush(new DatagramPacket(Unpooled.copiedBuffer(proxyMessage.getData()), address));
+        }
 
-            // 增加流量计数(TODO 如果UDP映射服务端端口修改，这个似乎不准)
-            Integer licenseId = visitorChannel.attr(Constants.LICENSE_ID).get();
-            if (null != licenseId) {
-                Solon.context().getBean(FlowReportService.class).addReadByte(licenseId, proxyMessage.getData().length);
-            }
+        // 增加流量计数(TODO 如果UDP映射服务端端口修改，这个似乎不准)
+        Integer licenseId = visitorChannel.attr(Constants.LICENSE_ID).get();
+        if (null != licenseId) {
+            Solon.context().getBean(FlowReportService.class).addReadByte(licenseId, proxyMessage.getData().length);
         }
     }
 

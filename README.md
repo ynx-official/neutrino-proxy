@@ -17,7 +17,7 @@
 - 技术栈：Solon、MybatisPlus、Netty
 - 遵循MIT许可，因此您可以对它进行复制、修改、传播并用于任何个人或商业行为。
 - 官网地址：https://neutrino-proxy-docs.asgc.fun
-- 快速上手请[点击这里](https://neutrino-proxy.dromara.org/neutrino-proxy/pages/793dcb/)
+- 快速上手请[点击这里](https://neutrino-proxy-docs.asgc.fun/pages/793dcb/)
 
 # 2、名称由来
 中微子，是轻子的一种，是组成自然界的最基本的粒子之一。它十分微小、不带电，可自由穿过地球，以接近光速运动，与其他物质的相互作用十分微弱，号称宇宙间的“隐身人”。
@@ -27,11 +27,11 @@
 因此以中微子命名，寓意着中微子代理拥有中微子"安全"、"快速"、"穿透力强"的特点。
 
 # 3、部署方式
-- 1、[使用宝塔面板](https://neutrino-proxy.dromara.org/pages/9e0fde/)
-- 2、[使用jar文件](https://neutrino-proxy.dromara.org/pages/eebea1/)
-- 3、[使用Docker](https://neutrino-proxy.dromara.org/pages/5b9bef/)
-- 4、[原生部署](https://neutrino-proxy.dromara.org/pages/69699a/)
-- 5、[使用Docker-Compose](https://neutrino-proxy.dromara.org/pages/2d4123/)
+- 1、[使用宝塔面板](https://neutrino-proxy-docs.asgc.fun/pages/9e0fde/)
+- 2、[使用jar文件](https://neutrino-proxy-docs.asgc.fun/pages/eebea1/)
+- 3、[使用Docker](https://neutrino-proxy-docs.asgc.fun/pages/5b9bef/)
+- 4、[原生部署](https://neutrino-proxy-docs.asgc.fun/pages/69699a/)
+- 5、[使用Docker-Compose](https://neutrino-proxy-docs.asgc.fun/pages/2d4123/)
 
 # 4、运行示例
 ![首页](assets/run-example/home.png)

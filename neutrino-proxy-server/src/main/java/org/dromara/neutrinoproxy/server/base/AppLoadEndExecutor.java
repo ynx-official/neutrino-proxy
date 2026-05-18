@@ -25,13 +25,14 @@ public class AppLoadEndExecutor implements EventListener<AppLoadEndEvent> {
         System.out.printf("""
             ---------------------------------------------------------------
                     Neutrino Proxy Server %s
-            admin: http://localhost:8888
+            admin: http://localhost:%s
             account: admin/123456
             Gitee: https://gitee.com/dromara/neutrino-proxy
             GitHub: https://github.com/dromara/neutrino-proxy
             GitCode: https://gitcode.com/dromara/neutrino-proxy
             ---------------------------------------------------------------
-            %n""", Solon.app().cfg().get("solon.app.version"));
+            %n""", Solon.app().cfg().get("solon.app.version"),
+            Solon.app().cfg().get("server.port"));
     }
 
 }

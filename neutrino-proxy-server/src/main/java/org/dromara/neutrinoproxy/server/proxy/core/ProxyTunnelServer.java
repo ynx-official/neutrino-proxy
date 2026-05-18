@@ -1,5 +1,7 @@
 package org.dromara.neutrinoproxy.server.proxy.core;
 
+import io.netty.channel.ChannelOption;
+import io.netty.channel.WriteBufferWaterMark;
 import io.netty.handler.logging.LoggingHandler;
 import org.dromara.neutrinoproxy.core.ProxyMessageDecoder;
 import org.dromara.neutrinoproxy.core.ProxyMessageEncoder;
@@ -54,6 +56,12 @@ public class ProxyTunnelServer implements EventListener<AppLoadEndEvent> {
 	 */
 	private void startProxyServer() {
 		ServerBootstrap bootstrap = new ServerBootstrap();
+
+        WriteBufferWaterMark waterMark = proxyConfig.getWaterMark();
+        if (null != waterMark) {
+            bootstrap.childOption(ChannelOption.WRITE_BUFFER_WATER_MARK, waterMark);
+        }
+
 		bootstrap.group(serverBossGroup, serverWorkerGroup).channel(NioServerSocketChannel.class).childHandler(new ChannelInitializer<SocketChannel>() {
 
 			@Override
@@ -91,8 +99,7 @@ public class ProxyTunnelServer implements EventListener<AppLoadEndEvent> {
 	}
 
 	private ChannelHandler createSslHandler() {
-		try {
-			InputStream jksInputStream = FileUtil.getInputStream(proxyConfig.getTunnel().getJksPath());
+		try (InputStream jksInputStream = FileUtil.getInputStream(proxyConfig.getTunnel().getJksPath())) {
 			SSLContext serverContext = SSLContext.getInstance("TLS");
 			final KeyStore ks = KeyStore.getInstance("JKS");
 

@@ -133,28 +133,40 @@ public class UdpServerUtil {
      * @return
      */
     public static synchronized Channel takeChannel(ProxyMessage.UdpBaseInfo info, Channel tunnelChannel) {
-        if (info.getProxyResponses() <= 0 || info.getProxyTimeoutMs() <= 0) {
+        Channel realServerChannel = tunnelChannel.attr(org.dromara.neutrinoproxy.core.Constants.NEXT_CHANNEL).get();
+        if (null != realServerChannel) {
+            UdpChannelBindInfo udpChannelBindInfo = realServerChannel.attr(Constants.UDP_CHANNEL_BIND_KEY).get();
+            // 每次发送前重置
+            udpChannelBindInfo.getLockChannel().setResponseCount(0);
+            udpChannelBindInfo.getLockChannel().setLastActiveTime(new Date());
+
+            return realServerChannel;
+        }
+        // 响应数量为零、超时时间<=0，则不需要响应（注意：响应数量为-1 则不限制响应数量）
+        if (info.getProxyResponses() == 0 || info.getProxyTimeoutMs() <= 0) {
             return defaultUdpServerChannel;
         }
+        // 没有空闲的 傀儡端口，降级为不需要响应
         Integer port = udpServerFreePortPool.poll();
         if (null == port) {
             return defaultUdpServerChannel;
         }
-        Channel channel = portToChannelMap.get(port);
-        if (null == channel) {
-            channel = bindPort(port);
-            portToChannelMap.put(port, channel);
+        realServerChannel = portToChannelMap.get(port);
+        if (null == realServerChannel) {
+            realServerChannel = bindPort(port);
+            portToChannelMap.put(port, realServerChannel);
         }
         // 添加到锁定队列
         LockChannel lockChannel = new LockChannel()
                 .setPort(port)
-                .setChannel(channel)
+                .setChannel(realServerChannel)
                 .setProxyResponses(info.getProxyResponses())
                 .setProxyTimeoutMs(info.getProxyTimeoutMs())
                 .setTakeTime(new Date())
+                .setLastActiveTime(new Date())
                 .setResponseCount(0);
         lockChannelList.add(lockChannel);
-        channel.attr(Constants.UDP_CHANNEL_BIND_KEY).set(new UdpChannelBindInfo()
+        realServerChannel.attr(Constants.UDP_CHANNEL_BIND_KEY).set(new UdpChannelBindInfo()
                 .setTunnelChannel(tunnelChannel)
                 .setVisitorId(info.getVisitorId())
                 .setVisitorIp(info.getVisitorIp())
@@ -164,7 +176,12 @@ public class UdpServerUtil {
                 .setTargetPort(info.getTargetPort())
                 .setLockChannel(lockChannel)
         );
-        return channel;
+
+        // 连接绑定
+        realServerChannel.attr(org.dromara.neutrinoproxy.core.Constants.NEXT_CHANNEL).set(tunnelChannel);
+        tunnelChannel.attr(org.dromara.neutrinoproxy.core.Constants.NEXT_CHANNEL).set(realServerChannel);
+
+        return realServerChannel;
     }
 
     /**
@@ -177,8 +194,8 @@ public class UdpServerUtil {
         Iterator<LockChannel> iter = lockChannelList.iterator();
         if (iter.hasNext()) {
             LockChannel lockChannel = iter.next();
-            if (lockChannel.getResponseCount() >= lockChannel.getProxyResponses() ||
-                    System.currentTimeMillis() - lockChannel.getTakeTime().getTime() >= lockChannel.getProxyTimeoutMs()
+            if ((lockChannel.getProxyResponses() > 0 && lockChannel.getResponseCount() >= lockChannel.getProxyResponses()) ||
+                    System.currentTimeMillis() - lockChannel.getLastActiveTime().getTime() > lockChannel.getProxyTimeoutMs()
             ) {
                 iter.remove();
                 UdpChannelBindInfo udpChannelBindInfo = lockChannel.getChannel().attr(Constants.UDP_CHANNEL_BIND_KEY).get();
@@ -186,6 +203,17 @@ public class UdpServerUtil {
                 closeChannel(udpChannelBindInfo.getTunnelChannel());
                 lockChannel.getChannel().attr(Constants.UDP_CHANNEL_BIND_KEY).set(null);
                 udpServerFreePortPool.offer(lockChannel.getPort());
+
+                // 连接解绑
+                Channel realServerChannel = lockChannel.getChannel();
+                Channel tunnelChannel = realServerChannel.attr(org.dromara.neutrinoproxy.core.Constants.NEXT_CHANNEL).get();
+                if (null != realServerChannel) {
+                    realServerChannel.attr(org.dromara.neutrinoproxy.core.Constants.NEXT_CHANNEL).set(null);
+                }
+                if (null != tunnelChannel) {
+                    tunnelChannel.attr(org.dromara.neutrinoproxy.core.Constants.NEXT_CHANNEL).set(null);
+                }
+
                 log.debug("[udp channel]release udp channel port:{}", lockChannel.getPort());
             }
         }

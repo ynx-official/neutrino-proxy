@@ -10,7 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.dromara.neutrinoproxy.core.Constants;
 import org.dromara.neutrinoproxy.core.ProxyMessage;
 import org.dromara.neutrinoproxy.server.constant.NetworkProtocolEnum;
-import org.dromara.neutrinoproxy.server.proxy.domain.ProxyAttachment;
 import org.dromara.neutrinoproxy.server.proxy.domain.VisitorChannelAttachInfo;
 import org.dromara.neutrinoproxy.server.service.FlowReportService;
 import org.dromara.neutrinoproxy.server.util.ProxyUtil;
@@ -33,8 +32,13 @@ public class UdpVisitorChannelHandler extends SimpleChannelInboundHandler<Datagr
         byte[] bytes = new byte[datagramPacket.content().readableBytes()];
         datagramPacket.content().readBytes(bytes);
         datagramPacket.content().resetReaderIndex();
-        ProxyAttachment proxyAttachment = new ProxyAttachment(ctx.channel(), bytes, (channel, buf) -> {
-            Channel proxyChannel = channel.attr(Constants.NEXT_CHANNEL).get();
+        Constants.ProxyAttachment proxyAttachment = new Constants.ProxyAttachment(bytes, (channel, buf) -> {
+            String visitorId = ProxyUtil.getVisitorIdBySocketAddress(datagramPacket.sender());
+            if (StrUtil.isBlank(visitorId)) {
+                return;
+            }
+            Channel proxyChannel = ProxyUtil.getTunnelChannelByVisitorId(visitorId);
+//            Channel proxyChannel = channel.attr(Constants.NEXT_CHANNEL).get();
 
             if (null == proxyChannel) {
 //                // 该端口还没有代理客户端
@@ -49,7 +53,6 @@ public class UdpVisitorChannelHandler extends SimpleChannelInboundHandler<Datagr
             Long proxyTimeoutMs = proxyChannel.attr(Constants.PROXY_TIMEOUT_MS).get();
 
             // 转发代理数据
-            String visitorId = ProxyUtil.getVisitorIdByChannel(channel);
             proxyChannel.writeAndFlush(ProxyMessage.buildUdpTransferMessage(new ProxyMessage.UdpBaseInfo()
                     .setVisitorId(visitorId)
                     .setVisitorIp(datagramPacket.sender().getAddress().getHostAddress())
@@ -65,10 +68,11 @@ public class UdpVisitorChannelHandler extends SimpleChannelInboundHandler<Datagr
             Solon.context().getBean(FlowReportService.class).addWriteByte(visitorChannelAttachInfo.getLicenseId(), bytes.length);
         });
 
-        Channel proxyChannel = ctx.channel().attr(Constants.NEXT_CHANNEL).get();
-        if (null != proxyChannel && proxyChannel.isActive()) {
+        String visitorId = ProxyUtil.getVisitorIdBySocketAddress(datagramPacket.sender());
+        Channel proxyChannel = ProxyUtil.getTunnelChannelByVisitorId(visitorId);
+        if (StrUtil.isNotBlank(visitorId) && null != proxyChannel && proxyChannel.isActive()) {
             // UDP代理隧道已就绪，直接转发
-            proxyAttachment.execute();
+            proxyAttachment.execute(ctx.channel());
             return;
         }
 
@@ -95,8 +99,10 @@ public class UdpVisitorChannelHandler extends SimpleChannelInboundHandler<Datagr
 //        // 用户连接到代理服务器时，设置用户连接不可读，等待代理后端服务器连接成功后再改变为可读状态
 //        visitorChannel.config().setOption(ChannelOption.AUTO_READ, false);
 
-        // TODO UDP此处叫visitor似有不妥，与TCP不同,2.x重构思考
-        String visitorId = ProxyUtil.newVisitorId();
+        // UDP场景下，一个visitorId并不对应一个visitorChannel，所有visitor共用一个visitorChannel
+        visitorId = ProxyUtil.newVisitorId();
+        // 设置udp发送方的地址
+        ProxyUtil.setVisitorIdToSocketAddressMap(visitorId, datagramPacket.sender());
         // 此处需要和tcp分开
         ProxyUtil.addVisitorChannelToCmdChannel(NetworkProtocolEnum.UDP, cmdChannel, visitorId, visitorChannel, sa.getPort());
         ProxyUtil.addProxyConnectAttachment(visitorId, proxyAttachment);
@@ -105,6 +111,7 @@ public class UdpVisitorChannelHandler extends SimpleChannelInboundHandler<Datagr
                 .setServerPort(sa.getPort())
                 .setTargetIp(targetIp)
                 .setTargetPort(targetPort)
+                // connect消息没有传超时时间、响应数量，导致客户端日志输出的超时时间、响应数量都是0
         ));
     }
 
@@ -113,12 +120,32 @@ public class UdpVisitorChannelHandler extends SimpleChannelInboundHandler<Datagr
         super.channelActive(ctx);
     }
 
-    @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        // 当出现异常就关闭连接
-        ctx.close();
-        log.error("[UDP Visitor Channel]VisitorChannel error", cause);
-    }
+//    @Override
+//    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+//        // 对于网络IO异常（致命异常），关闭channel以防止资源泄漏
+//        // 对于其他异常（可能是可恢复的业务异常），只记录日志
+//        if (cause instanceof IOException) {
+//            // IOException及其子类（包括SocketException）都是致命的网络异常
+//            if (cause instanceof SocketException && cause.getMessage() != null && cause.getMessage().contains("Connection reset")) {
+//                // Connection reset是常见的客户端断开，使用debug级别
+//                log.debug("[UDP Visitor Channel] Connection reset: {}", cause.getMessage());
+//            } else {
+//                log.error("[UDP Visitor Channel] IO error", cause);
+//            }
+//            if (ctx.channel().isActive()) {
+//                ctx.channel().close();
+//            }
+//        } else if(cause instanceof DecoderException) {
+//            // 协议解析错误，为防止数据污染，立即关闭
+//            log.debug("[UDP Visitor Channel] decoder error: {}", cause.getMessage());
+//            if (ctx.channel().isActive()) {
+//                ctx.channel().close();
+//            }
+//        } else {
+//            // 其他异常只记录日志，不关闭channel，让Netty自己处理
+//            log.error("[UDP Visitor Channel] error", cause);
+//        }
+//    }
 
     @Override
     public void channelWritabilityChanged(ChannelHandlerContext ctx) throws Exception {

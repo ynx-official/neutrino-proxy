@@ -3,7 +3,7 @@ solon:
     add: ./app.yml
   app:
     name: neutrino-proxy-client
-    version: 2.0.2
+    version: 2.0.4
 # 日志级别
 solon.logging.appender:
   console:
@@ -31,6 +31,8 @@ neutrino:
       read-idle-time: 120
       write-idle-time: 20
       all-idle-time-seconds: 0
+      # 高低水位线，如：32KB/64KB、32KB/1MB、1MB/5MB
+      # water-mark: 1MB/8MB
     tunnel:
       # 线程池相关配置，用于技术调优，可忽略
       thread-count: 50

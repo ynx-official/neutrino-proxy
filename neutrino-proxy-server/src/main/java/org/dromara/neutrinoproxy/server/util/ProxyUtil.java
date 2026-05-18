@@ -4,17 +4,23 @@ import cn.hutool.core.collection.CollectionUtil;
 import com.google.common.collect.Sets;
 import org.apache.commons.lang3.StringUtils;
 import org.dromara.neutrinoproxy.core.ChannelAttribute;
+import org.dromara.neutrinoproxy.core.Constants;
 import org.dromara.neutrinoproxy.server.constant.NetworkProtocolEnum;
+import org.dromara.neutrinoproxy.server.controller.res.stats.StatsInfoRes;
 import org.dromara.neutrinoproxy.server.proxy.domain.CmdChannelAttachInfo;
-import org.dromara.neutrinoproxy.server.proxy.domain.ProxyAttachment;
 import org.dromara.neutrinoproxy.server.proxy.domain.ProxyMapping;
 import org.dromara.neutrinoproxy.server.proxy.domain.VisitorChannelAttachInfo;
 import io.netty.channel.Channel;
 import io.netty.util.AttributeKey;
+import org.dromara.solonplugins.job.CustomThreadFactory;
 
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -27,16 +33,16 @@ import java.util.stream.Collectors;
  */
 public class ProxyUtil {
 	public static final AttributeKey<ChannelAttribute> CHANNEL_ATTR_KEY = AttributeKey.valueOf("netty.channel.attr");
-	/**
-	 * license -> 服务端口映射
-	 */
-	private static final Map<Integer, Set<Integer>> licenseToServerPortMap = new HashMap<>();
+//	/**
+//	 * license -> 服务端口映射
+//	 */
+//	private static final Map<Integer, Set<Integer>> licenseToServerPortMap = new HashMap<>();
 	/**
 	 * 代理信息映射 e.g.: 9104 -> 127.0.0.1:8848
 	 */
 	private static final Map<Integer, String> proxyInfoMap = new ConcurrentHashMap<>();
 	/**
-	 * 服务端口 -> 指令通道映射
+	 * 服务端口 -> 指令通道映射proxyInfoMap
 	 */
 	private static Map<Integer, Channel> serverPortToCmdChannelMap = new ConcurrentHashMap<>();
 	/**
@@ -58,8 +64,10 @@ public class ProxyUtil {
 	private static AtomicLong visitorIdProducer = new AtomicLong(0);
 	/**
 	 * 代理 - connect附加映射
+     * （TCP/HTTP场景下，已优化不是用这个。UDP由于无连接，暂时还是要用这个）
+     * UDP场景时，需要记录最后读写时间，使用定时器定期检查，超时需要释放，待后续优化
 	 */
-	private static Map<String, ProxyAttachment> proxyConnectAttachmentMap = new HashMap<>();
+	private static Map<String, Constants.ProxyAttachment> proxyConnectAttachmentMap = new HashMap<>();
 	/**
 	 * 完整域名 - 服务端端口映射
 	 */
@@ -72,6 +80,58 @@ public class ProxyUtil {
 	 * licenseId - 客户端Id映射
 	 */
 	private static Map<Integer, String> licenseIdToClientIdMap = new HashMap<>();
+    /**
+     * visitorId - SocketAddress映射
+     */
+    private static Map<String, SocketAddress> visitorIdToSocketAddressMap = new HashMap<>();
+    /**
+     * SocketAddress - visitorId 映射
+     */
+    private static Map<SocketAddress, String> socketAddressToVisitorIdMap = new HashMap<>();
+    /**
+     * visitorId - tunnelChannel 映射
+     */
+    private static Map<String, Channel> visitorIdToTunnelChannelMap = new HashMap<>();
+
+    /**
+     * cache扫描器
+     */
+    private static final ScheduledExecutorService cacheScanner = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("cacheScanner"));
+
+
+    /**
+     * 初始化，启动一个定时器，定时清理缓存
+     */
+    public static void init() {
+        cacheScanner.scheduleWithFixedDelay(ProxyUtil::cacheScan, 5, 5, TimeUnit.SECONDS);
+    }
+
+    public static synchronized void cacheScan() {
+        for (Integer key : serverPortToCmdChannelMap.keySet()) {
+            Channel channel = serverPortToCmdChannelMap.get(key);
+            if (null == channel || !channel.isRegistered()) {
+                serverPortToCmdChannelMap.remove(key);
+            }
+        }
+        for (Integer key : licenseToCmdChannelMap.keySet()) {
+            Channel channel = licenseToCmdChannelMap.get(key);
+            if (null == channel || !channel.isRegistered()) {
+                licenseToCmdChannelMap.remove(key);
+            }
+        }
+        for (Integer key : serverPortToVisitorChannel.keySet()) {
+            Channel channel = serverPortToVisitorChannel.get(key);
+            if (null == channel || !channel.isRegistered()) {
+                serverPortToVisitorChannel.remove(key);
+            }
+        }
+        for (String key : visitorIdToTunnelChannelMap.keySet()) {
+            Channel channel = visitorIdToTunnelChannelMap.get(key);
+            if (null == channel || !channel.isRegistered()) {
+                visitorIdToTunnelChannelMap.remove(key);
+            }
+        }
+    }
 
 	/**
 	 * 初始化代理信息
@@ -79,14 +139,14 @@ public class ProxyUtil {
 	 * @param proxyMappingList 代理映射集合
 	 */
 	public static void initProxyInfo(Integer licenseId, List<ProxyMapping> proxyMappingList) {
-		licenseToServerPortMap.put(licenseId, new HashSet<>());
+//		licenseToServerPortMap.put(licenseId, new HashSet<>());
 		addProxyInfo(licenseId, proxyMappingList);
 	}
 
 	public static void addProxyInfo(Integer licenseId, List<ProxyMapping> proxyMappingList) {
 		if (!CollectionUtil.isEmpty(proxyMappingList)) {
 			for (ProxyMapping proxyMapping : proxyMappingList) {
-				licenseToServerPortMap.get(licenseId).add(proxyMapping.getServerPort());
+//				licenseToServerPortMap.get(licenseId).add(proxyMapping.getServerPort());
 				proxyInfoMap.put(proxyMapping.getServerPort(), proxyMapping.getLanInfo());
 			}
 		}
@@ -96,7 +156,7 @@ public class ProxyUtil {
 		if (null == licenseId || null == proxyMapping) {
 			return;
 		}
-		licenseToServerPortMap.get(licenseId).add(proxyMapping.getServerPort());
+//		licenseToServerPortMap.get(licenseId).add(proxyMapping.getServerPort());
 		proxyInfoMap.put(proxyMapping.getServerPort(), proxyMapping.getLanInfo());
 	}
 
@@ -104,14 +164,14 @@ public class ProxyUtil {
 		proxyInfoMap.remove(serverPort);
 	}
 
-	/**
-	 * 根据licenseId获取服务端端口集合
-	 * @param licenseId licenseId
-	 * @return 服务端端口集合
-	 */
-	public static Set<Integer> getServerPortsByLicenseKey(Integer licenseId) {
-		return licenseToServerPortMap.get(licenseId);
-	}
+//	/**
+//	 * 根据licenseId获取服务端端口集合
+//	 * @param licenseId licenseId
+//	 * @return 服务端端口集合
+//	 */
+//	public static Set<Integer> getServerPortsByLicenseKey(Integer licenseId) {
+//		return licenseToServerPortMap.get(licenseId);
+//	}
 
 	/**
 	 * 根据服务端端口获取客户端代理信息
@@ -321,7 +381,7 @@ public class ProxyUtil {
 	 * @param visitorId
 	 * @param proxyAttachment
 	 */
-	public static void addProxyConnectAttachment(String visitorId, ProxyAttachment proxyAttachment) {
+	public static void addProxyConnectAttachment(String visitorId, Constants.ProxyAttachment proxyAttachment) {
 		proxyConnectAttachmentMap.put(visitorId, proxyAttachment);
 	}
 
@@ -330,7 +390,7 @@ public class ProxyUtil {
 	 * @param visitorId
 	 * @return
 	 */
-	public static ProxyAttachment getProxyConnectAttachment(String visitorId) {
+	public static Constants.ProxyAttachment getProxyConnectAttachment(String visitorId) {
 		return proxyConnectAttachmentMap.get(visitorId);
 	}
 
@@ -436,7 +496,7 @@ public class ProxyUtil {
 		if (StringUtils.isBlank(visitorId)) {
 			return;
 		}
-		ProxyAttachment proxyAttachment = ProxyUtil.getProxyConnectAttachment(visitorId);
+        Constants.ProxyAttachment proxyAttachment = ProxyUtil.getProxyConnectAttachment(visitorId);
 		if (null != proxyAttachment) {
 			tryClose(channel);
 		}
@@ -479,4 +539,50 @@ public class ProxyUtil {
 	public static void removeClientIdByLicenseId(Integer licenseId) {
 		licenseIdToClientIdMap.remove(licenseId);
 	}
+
+    public static void setVisitorIdToSocketAddressMap(String visitorId, SocketAddress socketAddress) {
+        visitorIdToSocketAddressMap.put(visitorId, socketAddress);
+        socketAddressToVisitorIdMap.put(socketAddress, visitorId);
+    }
+
+    public static SocketAddress getSocketAddressByVisitorId(String visitorId) {
+        return visitorIdToSocketAddressMap.get(visitorId);
+    }
+
+    public static void removeSocketAddressByVisitorId(String visitorId) {
+        SocketAddress socketAddress = visitorIdToSocketAddressMap.get(visitorId);
+        visitorIdToSocketAddressMap.remove(visitorId);
+        socketAddressToVisitorIdMap.remove(socketAddress);
+
+        visitorIdToTunnelChannelMap.remove(visitorId);
+    }
+
+    public static String getVisitorIdBySocketAddress(SocketAddress socketAddress) {
+        return socketAddressToVisitorIdMap.get(socketAddress);
+    }
+
+    public static void setVisitorIdToTunnelChannelMap(String visitorId, Channel tunnelChannel) {
+        visitorIdToTunnelChannelMap.put(visitorId, tunnelChannel);
+    }
+
+    public static Channel getTunnelChannelByVisitorId(String visitorId) {
+        return visitorIdToTunnelChannelMap.get(visitorId);
+    }
+
+    public static StatsInfoRes.CacheInfo getCacheInfo() {
+        return new StatsInfoRes.CacheInfo()
+            .setProxyInfoMapSize(proxyInfoMap.size())
+            .setServerPortToCmdChannelMapSize(serverPortToCmdChannelMap.size())
+            .setLicenseToCmdChannelMapSize(licenseToCmdChannelMap.size())
+            .setServerPortToVisitorChannelMapSize(serverPortToVisitorChannel.size())
+            .setProxyConnectAttachmentMapSize(proxyConnectAttachmentMap.size())
+            .setFullDomainToServerPortMapSize(fullDomainToServerPortMap.size())
+            .setDomainToDomainNameIdMapSize(domainToDomainNameIdMap.size())
+            .setLicenseIdToClientIdMapSize(licenseIdToClientIdMap.size())
+            .setVisitorIdToSocketAddressMapSize(visitorIdToSocketAddressMap.size())
+            .setSocketAddressToVisitorIdMapSize(socketAddressToVisitorIdMap.size())
+            .setVisitorIdToTunnelChannelMapSize(visitorIdToTunnelChannelMap.size())
+            ;
+    }
+
 }
