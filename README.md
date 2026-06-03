@@ -113,7 +113,7 @@
 
 # 📚 作者其他项目
 
-<p align="center">
+<p align="left">
 <a href="https://keydock.asgc.fun?from=neutrino-proxy" target="_blank">
 <img src="https://keydock.asgc.fun/project-recommend/dromara/logo/key-dock-horizontal.png" alt="钥栈 KeyDock 是一款 Chrome 浏览器多环境账号管理与一键登录填充插件，支持本地明文存储与可选 MinIO 同步，让多环境账号切换更高效安全。" width="15%">
 </a>
