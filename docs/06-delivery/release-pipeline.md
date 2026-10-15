@@ -77,7 +77,7 @@ Windows 本地生成安装包时使用 `npm.cmd`，避免 PowerShell 的 npm 包
 
 ```powershell
 cd neutrino-proxy-client-app
-npm.cmd run tauri -- icon src-tauri/icons/icon.png --output target/release-icons
+npm.cmd run tauri -- icon src-tauri/icons/app-icon.png --output target/release-icons
 npm.cmd run desktop:bundle -- --target x86_64-pc-windows-msvc --bundles nsis -- --locked
 ```
 

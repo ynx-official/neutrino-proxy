@@ -32,68 +32,159 @@ const remaining = computed(() =>
 );
 const time = (value) =>
   new Date(value).toLocaleTimeString("zh-CN", { hour12: false });
-const recent = computed(() => (props.model.logs || []).slice(-5));
+const recent = computed(() => (props.model.logs || []).slice(-3));
 </script>
 <template>
   <section class="connection-page">
-    <header class="page-header">
-      <h1>连接</h1>
-      <button class="button secondary" @click="actions.navigate?.('/settings')">
-        <Icon name="settings" :size="17" />编辑连接
-      </button>
-    </header>
-
-    <div class="connection-panel">
-      <section :class="['connection-hero', { online: connected, failed: model.state === 'error', working: isActive(model.state) && !connected }]" aria-labelledby="connection-title">
-        <div class="hero-main">
-          <div class="hero-status">
-            <Icon :name="connected ? 'link' : model.state === 'error' ? 'alert' : isActive(model.state) ? 'refresh' : 'power'" :size="25" :class="{ spinning: ['connecting', 'authenticating'].includes(model.state) }" />
-            <h2 id="connection-title">{{ stateLabels[model.state] || '尚未连接' }}</h2>
-          </div>
-          <p v-if="config.server" class="hero-endpoint" :title="config.server + ':' + config.port">
-            <span>{{ config.server }}</span><span class="endpoint-port">:{{ config.port }}</span>
-          </p>
-          <p v-if="model.state === 'error' && model.detail" class="hero-error">{{ model.detail }}</p>
-          <p v-if="remaining !== null" class="retry-note">{{ remaining }} 秒后重试</p>
-          <div class="hero-actions">
-            <template v-if="isActive(model.state)">
-              <button v-if="model.state === 'reconnecting'" class="button primary" @click="actions.connect?.()"><Icon name="refresh" :size="17" />立即重试</button>
-              <button data-testid="disconnect" class="button secondary" :disabled="model.state === 'stopping'" @click="actions.disconnect?.()">
-                <Icon name="power" :size="17" />{{ connected ? '断开连接' : model.state === 'reconnecting' ? '停止重连' : '取消连接' }}
-              </button>
-            </template>
-            <button v-else-if="model.config.server && model.hasLicense" class="button primary" @click="actions.connect?.()">
-              <Icon name="power" :size="17" />{{ model.state === 'error' ? '重新连接' : '连接' }}
+    <section class="connection-status" aria-labelledby="connection-title">
+      <div class="status-main">
+        <div class="hero-status">
+          <span
+            :class="[
+              'status-indicator',
+              {
+                online: connected,
+                failed: model.state === 'error',
+                working: isActive(model.state) && !connected,
+              },
+            ]"
+            aria-hidden="true"
+          >
+            <Icon v-if="model.state === 'error'" name="alert" :size="17" />
+            <Icon
+              v-else-if="isActive(model.state) && !connected"
+              name="refresh"
+              :size="16"
+              :class="{
+                spinning: ['connecting', 'authenticating'].includes(
+                  model.state,
+                ),
+              }"
+            />
+          </span>
+          <h1 id="connection-title">
+            {{ stateLabels[model.state] || "尚未连接" }}
+          </h1>
+        </div>
+        <p
+          v-if="config.server"
+          class="hero-endpoint"
+          :title="config.server + ':' + config.port"
+        >
+          <span>{{ config.server }}</span
+          ><span class="endpoint-port">:{{ config.port }}</span>
+        </p>
+        <p
+          v-if="['error', 'reconnecting'].includes(model.state) && model.detail"
+          class="hero-error"
+          role="status"
+        >
+          {{ model.detail }}
+        </p>
+        <p v-if="remaining !== null" class="retry-note">
+          {{ remaining }} 秒后重试
+        </p>
+        <button
+          v-if="model.config.server"
+          class="text-link edit-connection"
+          @click="actions.navigate?.('/settings')"
+        >
+          <Icon name="settings" :size="17" />编辑连接
+        </button>
+      </div>
+      <div class="status-side">
+        <div class="hero-actions">
+          <template v-if="isActive(model.state)">
+            <button
+              v-if="model.state === 'reconnecting'"
+              class="button primary"
+              @click="actions.connect?.()"
+            >
+              <Icon name="refresh" :size="17" />立即重试
             </button>
-            <template v-else>
-              <button class="button primary" @click="actions.navigate?.('/settings')">填写连接信息<Icon name="arrow" :size="17" /></button>
-              <button class="button quiet" @click="actions.importConfig?.()">导入配置</button>
-            </template>
-          </div>
+            <button
+              data-testid="disconnect"
+              class="button secondary"
+              :disabled="model.state === 'stopping'"
+              @click="actions.disconnect?.()"
+            >
+              <Icon name="power" :size="17" />{{
+                connected
+                  ? "断开连接"
+                  : model.state === "reconnecting"
+                    ? "停止重连"
+                    : "取消连接"
+              }}
+            </button>
+          </template>
+          <button
+            v-else-if="model.config.server && model.hasLicense"
+            class="button primary"
+            @click="actions.connect?.()"
+          >
+            <Icon name="power" :size="17" />{{
+              model.state === "error" ? "重新连接" : "连接"
+            }}
+          </button>
+          <template v-else>
+            <button
+              class="button primary"
+              @click="actions.navigate?.('/settings')"
+            >
+              填写连接信息
+            </button>
+            <button class="button quiet" @click="actions.importConfig?.()">
+              导入配置
+            </button>
+          </template>
         </div>
-        <div class="hero-duration">
-          <span>本次连接</span>
-          <strong>{{ duration }}</strong>
-          <div class="tunnel-line" aria-hidden="true"><i /><span /><i /></div>
+        <div v-if="config.server" class="hero-duration">
+          <span>本次连接</span><strong>{{ duration }}</strong>
         </div>
-      </section>
-      <dl v-if="model.config.server" class="connection-meta">
-        <div><Icon name="shield" :size="21" /><div><dt>SSL 加密</dt><dd>{{ config.ssl ? '已启用' : '未启用' }}</dd></div></div>
-        <div><Icon name="key" :size="21" /><div><dt>License</dt><dd class="license-hint">{{ model.licenseHint || (model.hasLicense ? '已保存' : '未配置') }}</dd></div></div>
-      </dl>
-    </div>
-    <p v-if="model.pendingConfig" class="pending-notice"><Icon name="info" :size="16" />新配置将在下次连接时生效</p>
-
+      </div>
+    </section>
+    <dl v-if="model.config.server" class="connection-meta">
+      <div>
+        <dt>SSL</dt>
+        <dd>{{ config.ssl ? "已启用" : "未启用" }}</dd>
+      </div>
+      <div>
+        <dt>License</dt>
+        <dd class="license-hint">
+          {{ model.licenseHint || (model.hasLicense ? "已保存" : "未配置") }}
+        </dd>
+      </div>
+    </dl>
+    <p v-if="model.pendingConfig" class="pending-notice">
+      <Icon name="info" :size="16" />新配置将在下次连接时生效
+    </p>
     <section class="recent-events" aria-labelledby="events-title">
       <div class="section-heading">
         <h3 id="events-title">最近事件</h3>
-        <button class="text-link" @click="actions.navigate?.('/logs')">查看全部日志<Icon name="arrow" :size="16" /></button>
+        <button class="text-link" @click="actions.navigate?.('/logs')">
+          全部日志<Icon name="chevron" :size="16" />
+        </button>
       </div>
-      <div v-if="!recent.length" class="empty-events"><Icon name="logs" :size="20" />暂无事件</div>
+      <div v-if="!recent.length" class="empty-events">暂无事件</div>
       <ul v-else class="event-list">
         <li v-for="entry in recent" :key="entry.id">
-          <Icon :name="entry.level === 'error' || entry.level === 'warn' ? 'alert' : 'check'" :size="16" :class="entry.level === 'error' ? 'danger' : entry.level === 'warn' ? 'warning' : 'success'" />
-          <span>{{ entry.message }}</span><time>{{ time(entry.time) }}</time>
+          <Icon
+            :name="
+              entry.level === 'error' || entry.level === 'warn'
+                ? 'alert'
+                : 'check'
+            "
+            :size="17"
+            :class="
+              entry.level === 'error'
+                ? 'danger'
+                : entry.level === 'warn'
+                  ? 'warning'
+                  : 'success'
+            "
+          />
+          <span>{{ entry.message }}</span
+          ><time>{{ time(entry.time) }}</time>
         </li>
       </ul>
     </section>

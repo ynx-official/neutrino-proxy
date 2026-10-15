@@ -12,10 +12,15 @@ export async function call(command, args = {}) {
     throw new Error("请从桌面程序打开，浏览器预览不提供后台连接。");
   return invoke(command, args);
 }
-export async function subscribe(callback) {
-  if (testBridge()) return testBridge().subscribe(callback);
+export async function subscribe(callback, eventName = "client-state") {
+  if (testBridge()) return testBridge().subscribe(callback, eventName);
   if (!isTauri()) return () => {};
-  return listen("client-state", (event) => callback(event.payload));
+  return listen(eventName, (event) => callback(event.payload));
+}
+export async function subscribeNavigation(callback) {
+  if (testBridge()) return testBridge().subscribeNavigation?.(callback) || (() => {});
+  if (!isTauri()) return () => {};
+  return listen("main-navigate", callback);
 }
 export async function confirmAction(message) {
   if (!isTauri()) return window.confirm(message);

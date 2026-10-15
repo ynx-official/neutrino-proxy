@@ -1,0 +1,6 @@
+{
+  "identifier": "tray-popup",
+  "description": "Transient local tray popup; event subscription only",
+  "windows": ["tray"],
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+}

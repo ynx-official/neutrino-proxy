@@ -14,8 +14,8 @@
       {
         "label": "main",
         "title": "Neutrino Proxy",
-        "width": 1040,
-        "height": 720,
+        "width": 860,
+        "height": 620,
         "minWidth": 860,
         "minHeight": 620,
         "center": true
@@ -28,6 +28,6 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "dmg"],
-    "icon": ["icons/icon.png"]
+    "icon": ["icons/icon.ico", "icons/icon.icns", "icons/icon.png"]
   }
 }

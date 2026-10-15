@@ -6,11 +6,15 @@
 
 ## 运行已构建的 Windows 程序
 
-本机构建输出位于 `neutrino-proxy-client-app/target/release/neutrino-proxy-client-app.exe`。可直接打开该文件；它已经包含前端资源，不需要先启动 Vite，也不依赖 Java。
+当前项目 Logo 图标版（默认 860 × 620、首页最新三条事件、实时托盘浮层）输出位于 `neutrino-proxy-client-app/target/ui-refresh/release/neutrino-proxy-client-app.exe`，包含前端资源，不需要先启动 Vite，也不依赖 Java。常规 `npm run desktop:build` 仍默认输出到 `target/release/neutrino-proxy-client-app.exe`。
+
+由于当前运行程序占用常规 Release 路径，本轮使用独立输出目录，保留旧进程与其配置。切换时从托盘退出旧版，再打开简约版并点击“连接”；仅关闭窗口仍会保留旧进程，单实例机制会继续打开旧界面。用于验证的简约预览使用独立标识与空配置，不是日常连接用程序。
+
+本轮托盘浮层的自动化检查和 Windows 构建已通过；原生交互复验在用户按 Escape 停止后保留待验，完整边界见[开发进展](../06-delivery/client-app-development-status.md)。
 
 第一次打开不会自动连接。进入“设置”，填写服务器地址、对应的隧道端口和 License，选择是否启用 SSL，然后“保存并连接”。填写真实连接信息前，请确认服务器及 License 的使用权限；开发验证使用本地测试对端和虚构凭证。
 
-关闭窗口后应用仍在托盘运行，再次打开同一个 exe 会恢复主窗口。完全结束应用使用托盘菜单的“退出应用”。重新构建 exe 前先退出测试实例，避免 Windows 文件占用导致替换失败。
+关闭窗口后应用仍在托盘运行，再次打开同一个 exe 会恢复主窗口。单击或右击托盘图标打开浮层，可查看状态和服务器、打开主窗口或日志，并按状态连接、取消、停止重连或断开。Escape 或点击外部关闭浮层；完全结束应用使用“退出应用”。重新构建 exe 前先退出测试实例，避免 Windows 文件占用导致替换失败。
 
 ## 开发环境
 
@@ -41,7 +45,7 @@ npm run desktop:build
 ```powershell
 npm test
 npm run build
-cargo test -p neutrino-client-core
+cargo test --workspace
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 npm run test:e2e
@@ -58,3 +62,13 @@ npm run test:e2e
 导入 YAML 会先显示脱敏预览，用户确认后才保存。自定义协议帧参数、水位线或全空闲超时尚未完整迁移时，导入明确拒绝应用这些配置；不能把导入基本字段成功等同于全部配置已兼容。
 
 SSL 会校验证书链、有效期与服务器名称。旧 Java 客户端未显式启用名称验证，部分旧证书可能无法直接使用；当前不提供忽略证书错误的开关，兼容差异仍需专项验证。
+
+## 图标资源维护
+
+原 Logo 位于 `assets/logo/logo.png`（仓库根目录）；窗口及托盘浮层使用它的副本，托盘使用等比透明小图。桌面图标母版为 `src-tauri/icons/app-icon.png`（App 目录），平台资源通过现有 CLI 导出：
+
+```powershell
+npm run tauri -- icon src-tauri/icons/app-icon.png --output target/release-icons
+```
+
+发布流水线使用相同母版和命令；日常构建直接读取已保存的 `.ico`、`.icns` 和 `.png`。本轮未更改安装签名、发布授权或实际发布版本。

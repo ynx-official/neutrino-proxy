@@ -225,7 +225,7 @@ jobs:
       - name: Generate platform icons and build unsigned installer
         working-directory: neutrino-proxy-client-app
         run: |
-          npm run tauri -- icon src-tauri/icons/icon.png --output target/release-icons
+          npm run tauri -- icon src-tauri/icons/app-icon.png --output target/release-icons
           npm run desktop:bundle -- --target "$BUILD_TARGET" --bundles "$BUILD_BUNDLES" -- --locked
       - name: Package desktop outputs
         run: |

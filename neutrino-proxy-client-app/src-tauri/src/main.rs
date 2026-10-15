@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod storage;
+mod tray;
 use neutrino_client_core::{
     config::{validate, ClientConfig},
     Engine, Snapshot,
@@ -9,11 +10,15 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Mutex,
 };
-use tauri::{
-    menu::{Menu, MenuItem},
-    tray::TrayIconBuilder,
-    Emitter, Manager,
-};
+use tauri::{Emitter, Manager};
+
+#[derive(Default)]
+struct Navigation(Mutex<Option<String>>);
+
+#[tauri::command]
+fn take_navigation(state: tauri::State<Navigation>) -> Option<String> {
+    state.0.lock().unwrap().take()
+}
 
 struct AppState {
     engine: Engine,
@@ -165,17 +170,43 @@ async fn export_logs(
     .map_err(|e| e.to_string())?
 }
 fn show_window(app: &tauri::AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.set_focus();
-        return;
+    let app = app.clone();
+    // WebView2 creation must run outside synchronous native event handlers.
+    tauri::async_runtime::spawn_blocking(move || {
+        if let Err(error) = show_main(&app, None) {
+            app.state::<AppState>().engine.log("error", "窗口", &error);
+        }
+    });
+}
+fn show_main(app: &tauri::AppHandle, route: Option<&str>) -> Result<(), String> {
+    if let Some(route) = route {
+        *app.state::<Navigation>().0.lock().unwrap() = Some(route.into());
     }
-    let _ =
-        tauri::WebviewWindowBuilder::new(app, "main", tauri::WebviewUrl::App("index.html".into()))
-            .title("Neutrino Proxy")
-            .inner_size(1040.0, 720.0)
-            .min_inner_size(860.0, 620.0)
-            .build();
+    if let Some(window) = app.get_webview_window("main") {
+        window
+            .unminimize()
+            .and_then(|_| window.show())
+            .and_then(|_| window.set_focus())
+            .map_err(|e| e.to_string())?;
+        if route.is_some() {
+            window
+                .emit_to("main", "main-navigate", ())
+                .map_err(|e| e.to_string())?;
+        }
+        return Ok(());
+    }
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|window| window.label == "main")
+        .ok_or("主窗口配置缺失")?;
+    tauri::WebviewWindowBuilder::from_config(app, config)
+        .and_then(|builder| builder.build())
+        .map_err(|e| e.to_string())?;
+    // The new page consumes the pending route after installing its router guard.
+    Ok(())
 }
 fn main() {
     // The UI is transient; background networking shares a small fixed worker pool.
@@ -189,7 +220,14 @@ fn main() {
     tauri::async_runtime::set(runtime.handle().clone());
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _| {
+            // Native UI tests can open the real popup without automating the OS taskbar.
+            // This entry point is absent from release binaries.
+            #[cfg(debug_assertions)]
+            if _args.iter().any(|arg| arg == "--preview-tray") {
+                tray::preview(app);
+                return;
+            }
             show_window(app)
         }))
         .setup(|app| {
@@ -205,63 +243,31 @@ fn main() {
                 quitting: AtomicBool::new(false),
             });
             app.manage(storage::PendingImport::default());
-            let open = MenuItem::with_id(app, "open", "打开主窗口", true, None::<&str>)?;
-            let connect = MenuItem::with_id(app, "connect", "连接", true, None::<&str>)?;
-            let disconnect = MenuItem::with_id(app, "disconnect", "断开连接", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "退出应用", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &connect, &disconnect, &quit])?;
-            TrayIconBuilder::with_id("client-tray")
-                .icon(app.default_window_icon().unwrap().clone())
-                .tooltip("Neutrino Proxy · 尚未连接")
-                .menu(&menu)
-                .on_menu_event(|app, event| match event.id.as_ref() {
-                    "open" => show_window(app),
-                    "connect" => {
-                        let app = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            let _ = connect_command(&state).await;
-                        });
-                    }
-                    "disconnect" => {
-                        let app = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            app.state::<AppState>().engine.disconnect().await;
-                        });
-                    }
-                    "quit" => {
-                        let app = app.clone();
-                        tauri::async_runtime::spawn(async move {
-                            let state = app.state::<AppState>();
-                            state.quitting.store(true, Ordering::SeqCst);
-                            state.engine.disconnect().await;
-                            app.exit(0);
-                        });
-                    }
-                    _ => {}
-                })
-                .build(app)?;
+            app.manage(Navigation::default());
+            tray::install(app)?;
             let mut changes = engine.subscribe();
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                while changes.changed().await.is_ok() {
+                let mut previous_connected = None;
+                loop {
                     let snapshot = changes.borrow_and_update().clone();
-                    if let Some(tray) = handle.tray_by_id("client-tray") {
-                        let label = if snapshot.state == "connected" {
-                            "已连接"
-                        } else {
-                            "尚未连接"
-                        };
-                        let _ = tray.set_tooltip(Some(format!("Neutrino Proxy · {label}")));
+                    tray::update(&handle, &snapshot, &mut previous_connected);
+                    if let Some(window) = handle.get_webview_window("main") {
+                        let _ = window.emit_to("main", "client-state", snapshot);
                     }
-                    if handle.get_webview_window("main").is_some() {
-                        let _ = handle.emit("client-state", snapshot);
+                    if changes.changed().await.is_err() {
+                        break;
                     }
                 }
             });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            tray::tray_snapshot,
+            tray::tray_ready,
+            tray::close_tray,
+            tray::tray_action,
+            take_navigation,
             get_snapshot,
             connect,
             disconnect,

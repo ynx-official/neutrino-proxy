@@ -172,6 +172,10 @@ stateDiagram-v2
 
 主窗口关闭时，由 Rust 管理窗口销毁和防止应用随最后窗口关闭而退出；托盘与内核继续工作。再次打开只创建一个窗口：先建立事件监听并短暂缓冲，再获取包含 revision 的完整快照，丢弃不晚于该快照的缓存事件，按 revision 应用后续事件；发现事件缺口则重新获取快照。状态提交和 revision 更新在 Rust 内保持一致，不能用“先取快照再监听”留下初始化竞态。销毁 UI 不代表所有平台 WebView 辅助进程立即退出，资源释放需实测。[Tauri 窗口 API](https://v2.tauri.app/reference/javascript/api/namespacewebviewwindow/#destroy)、[托盘文档](https://v2.tauri.app/learn/system-tray/)
 
+2026-10-15 托盘交互落地：`tray.html` 是独立的本地入口，只在打开托盘时创建；失焦、Escape 或完成动作后销毁。托盘只接收状态、地址、revision 和允许的动作，不接收配置全量、License 摘要或日志。事件订阅先于首次快照，并按 revision 防止旧快照覆盖新事件。状态变化只向存在的窗口发送相应事件。
+
+托盘的 `tray_snapshot`、`tray_ready`、`close_tray`、`tray_action` 由宿主校验调用窗口为 `tray`；独立 capability 仅开放事件订阅。连接动作在宿主复查当前状态。主窗口导航以待消费路径和通知配合：已存在的页面通过 Router guard 确认未保存修改，新建页面挂载后消费路径，避免初始化时丢失导航。原生托盘与单实例回调将 WebView 创建交给既有阻塞任务池，避免 Tauri 文档注明的 Windows 同步事件回调创建死锁；托盘创建请求串行化，失焦回调仅提交异步销毁任务。
+
 建议 IPC 合约：
 
 | 命令 | 输入 | 输出 / 效果 |

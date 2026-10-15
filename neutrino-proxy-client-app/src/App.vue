@@ -3,8 +3,9 @@ import { reactive, ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import Icon from "./components/AppIcon.vue";
-import { initialModel, stateLabels, isActive } from "./services/state";
-import { call, subscribe, inDesktop, confirmAction } from "./services/desktop";
+import BrandMark from "./components/BrandMark.vue";
+import { initialModel } from "./services/state";
+import { call, subscribe, subscribeNavigation, inDesktop, confirmAction } from "./services/desktop";
 const model = reactive(initialModel()),
   error = ref(""),
   busy = ref(false),
@@ -12,7 +13,11 @@ const model = reactive(initialModel()),
   importPreview = ref(null),
   ready = ref(false);
 const router = useRouter();
-let unlisten, unclose;
+let unlisten, unclose, unnavigate;
+async function navigateFromTray() {
+  const path = await call("take_navigation");
+  if (path) await router.push(path);
+}
 const apply = (snapshot) => {
   if (snapshot && snapshot.revision >= model.revision)
     Object.assign(model, snapshot);
@@ -69,8 +74,10 @@ router.beforeEach(async (to, from) => {
 onMounted(async () => {
   try {
     unlisten = await subscribe(apply);
+    unnavigate = await subscribeNavigation(() => safe(navigateFromTray));
     apply(await call("get_snapshot"));
     ready.value = true;
+    await navigateFromTray();
     if (inDesktop())
       unclose = await getCurrentWindow().onCloseRequested(async (event) => {
         event.preventDefault();
@@ -88,43 +95,26 @@ onMounted(async () => {
 onUnmounted(() => {
   unlisten?.();
   unclose?.();
+  unnavigate?.();
 });
 </script>
 <template>
   <div class="desktop-layout" :aria-busy="busy">
-    <aside class="sidebar">
+    <header class="app-header">
       <div class="wordmark">
-        <svg class="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-          <path d="M8 23V9h4l8 14h4V9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-          <circle cx="24" cy="9" r="3" fill="currentColor" />
-        </svg>
-        <span>Neutrino<span class="brand-subtitle">Proxy Client</span></span>
+        <BrandMark />
+        <span>Neutrino</span>
       </div>
       <nav aria-label="主导航">
         <RouterLink to="/" exact-active-class="selected"
-          ><Icon name="link" :size="20" /><span>连接</span></RouterLink
+          ><span>连接</span></RouterLink
         ><RouterLink to="/logs" active-class="selected"
-          ><Icon name="logs" :size="20" /><span>日志</span></RouterLink
+          ><span>日志</span></RouterLink
         ><RouterLink to="/settings" active-class="selected"
-          ><Icon name="settings" :size="20" /><span>设置</span></RouterLink
+          ><span>设置</span></RouterLink
         >
       </nav>
-      <div class="sidebar-footer">
-        <div class="sidebar-status">
-          <span
-            :class="[
-              'status-dot',
-              {
-                online: model.state === 'connected',
-                connecting:
-                  isActive(model.state) && model.state !== 'connected',
-              },
-            ]"
-          />{{ stateLabels[model.state] || "尚未连接" }}
-        </div>
-        <div class="version">v{{ model.version }}</div>
-      </div>
-    </aside>
+    </header>
     <main class="main-content">
       <div v-if="error" class="global-error" role="alert">
         <Icon name="alert" :size="18" /><span>{{ error }}</span
@@ -138,6 +128,9 @@ onUnmounted(() => {
           :key="$route.path"
       /></RouterView>
     </main>
+    <footer class="app-footer">
+      <span class="version">v{{ model.version }}</span>
+    </footer>
     <div
       v-if="importPreview"
       class="modal-backdrop"

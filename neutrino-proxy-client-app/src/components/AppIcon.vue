@@ -1,6 +1,8 @@
 <script setup>
 defineProps({ name: String, size: { default: 20 } });
 const paths = {
+  window: "M3 4h18v16H3z M3 9h18",
+  exit: "M14 4H4v16h10 M10 12h12 m-4-4 4 4-4 4",
   link: "M10 13a5 5 0 0 0 7 .1l3-3a5 5 0 0 0-7-7l-2 2 M14 11a5 5 0 0 0-7-.1l-3 3a5 5 0 0 0 7 7l2-2",
   logs: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M8 12h8 M8 16h8",
   settings:
@@ -16,7 +18,8 @@ const paths = {
   power: "M12 2v10 M6 5a9 9 0 1 0 12 0",
   upload: "M12 16V3 m-5 5 5-5 5 5 M4 14v6h16v-6",
   download: "M12 3v13 m-5-5 5 5 5-5 M4 16v5h16v-5",
-  server: "M4 3h16v7H4z M4 14h16v7H4z M8 6.5h.01 M8 17.5h.01 M12 6.5h5 M12 17.5h5",
+  server:
+    "M4 3h16v7H4z M4 14h16v7H4z M8 6.5h.01 M8 17.5h.01 M12 6.5h5 M12 17.5h5",
   shield: "m12 2 8 3v6c0 5-4 8-8 11-4-3-8-6-8-11V5z m-4 10 3 3 5-6",
   key: "M15 14a6 6 0 1 0-5-5 M10 9 2 17v5h5v-3h3v-3l2-2 M17 7h.01",
   search: "M21 21l-5-5 M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0",

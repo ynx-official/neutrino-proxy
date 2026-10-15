@@ -17,6 +17,10 @@
 - Source: `VoltAgent/awesome-design-md`
 - Style ID: `airtable`（用户于 2026-10-15 确认）
 - Style reference: `C:/Users/Administrator/.codex/skills/awesome-design-md/references/design-md/airtable/DESIGN.md`
+- Approved variant: 用户于 2026-10-15 确认简约样图；顶部导航、单一白色画布、细分隔线、无卡片与大色块。
+- Approved UI reference: `docs/02-design/assets/client-app-minimal-approved.png`；样图的布局与视觉优先，`airtable` 作为基础视觉来源，不自行恢复奶油导航或深绿面板。
+- Approved tray reference: 用户于 2026-10-15 确认 `docs/02-design/assets/client-app-tray-preview.png`；白色浮层、应用名、实时状态与服务器摘要、打开主窗口、查看日志、互斥连接操作及独立退出项。
+- Brand source: 用户于 2026-10-15 指定项目 `assets/logo/logo.png` 作为软件图标，可加工适配 Windows / macOS；应用内及托盘保留该原始标识，桌面圆角底座母版为 `neutrino-proxy-client-app/src-tauri/icons/app-icon.png`。当前底座处理为实现选型，未另行声称用户已确认生成图。
 - 桌面工具的布局和视觉适配见 `docs/02-design/client-app-ui.md`；保留白底、深墨色文字、克制的主操作与清晰层级，不复制 Airtable 品牌标识或营销页面。
 
 ## 文档与验证
