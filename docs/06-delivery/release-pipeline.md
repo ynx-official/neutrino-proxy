@@ -102,6 +102,16 @@ Solon 2.7 的外部配置路径在含空格目录下存在既有读取差异，J
 
 修正保留全部业务验证：临时目录清理在 `PermissionError` 时最多等待约 6 秒，持续失败仍终止构建；浏览器用服务器地址、连接时长、点击断开后的状态及重新连接入口验证替代过时文案。新增临时占用及持续占用回归测试，本地 21 项发布脚本测试和提交版本的 4 项浏览器流程通过。由于版本尚未公开，仅将本次新建的 tag 更新到修复提交后重建；使用旧 tag 对象的 lease 防止覆盖其他人随后更新的引用。
 
+### v2.0.3 正式发布结果
+
+2026-10-15 14:07（Asia/Shanghai）已自动公开 [v2.0.3 正式 Release](https://github.com/ynx-official/neutrino-proxy/releases/tag/v2.0.3)，`draft=false`、`prerelease=false`。tag 指向修复提交 `11618d4576424310ffebca96e177a6e47cad43c8`；[完整构建运行](https://github.com/ynx-official/neutrino-proxy/actions/runs/38689021698)所有作业成功。
+
+- 服务端及命令行客户端：JAR、Linux x64 native、Windows x64 native 均构建、打包、解压并通过临时 H2 / 管理后台资源 / 本地认证握手检查；Windows 退出后的文件释放与清理验证通过。
+- 桌面 App：Windows x64 NSIS 与便携 ZIP、Intel macOS DMG、Apple Silicon macOS DMG 全部生成；组件测试、Rust workspace 测试与静态检查通过，Windows 浏览器回归通过。
+- Release 共有 12 个附件：10 个分发文件、`release-manifest.json` 和 `SHA256SUMS`。上传时逐个比对 GitHub 返回的 SHA-256 digest 与本地文件，全部一致后自动公开，无人工批准步骤。
+- 未配置开发者签名证书或公证。远端构建成功不等同于已执行安装、macOS 原生窗口检查、长期稳定性或生产环境兼容验收。
+- 本次发布只提交发版流程、必要配置和上述验证修正；工作区中另一次未提交的界面调整未加入此 tag，予以保留。
+
 ## 官方依据
 
 - [GitHub Actions 工作流与 tag 过滤](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)
