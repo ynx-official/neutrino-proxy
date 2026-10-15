@@ -4,7 +4,13 @@
 最后更新：2026-10-15  
 关联文档：[总体方案](../00-project/client-app-proposal.md)、[界面设计](../02-design/client-app-ui.md)、[架构设计](../03-architecture/client-app-architecture.md)、[完整验收计划](../04-quality/client-app-acceptance.md)、[本地运行](../05-operations/client-app-local-development.md)
 
-## 2026-10-15 项目 Logo 图标与目录清理（当前）
+## 2026-10-15 v2.0.4 正式发布（当前）
+
+已按用户要求将源码提交 `be080e19987fca69aeb10fe1b0b084bf63073bf4` 正式发布为 [v2.0.4](https://github.com/ynx-official/neutrino-proxy/releases/tag/v2.0.4)，包含本页记录的简约界面、托盘浮层和项目 Logo。Windows 安装程序及便携 ZIP、Intel / Apple Silicon macOS DMG 均由 CI 成功生成并公开；验证与附件溯源以[统一发版记录](release-pipeline.md#v204-发布记录)为准。
+
+本节更新下方历史里程碑中的“尚未生成安装程序 / 尚未正式发布”状态；历史开发版本号与本地产物哈希保留用于追溯。发布不代表补齐托盘原生交互复验、macOS 原生窗口验收、真实兼容矩阵和长期稳定性测试，这些待办仍保留。
+
+## 2026-10-15 项目 Logo 图标与目录清理
 
 用户指定 `assets/logo/logo.png` 为图标来源，授权加工适配 Windows / macOS，同时明确删除根目录 `.idea`、`.workflow`。本轮以原蓝橙标识制作浅色圆角底座母版，导出 `.ico` / `.icns` / PNG，更新默认窗口、托盘、页面品牌及发布流水线的图标来源。原 Logo 文件保持不变；页面使用逐字节副本，托盘使用直接从原图等比导出的透明小图，连接状态角标预生成并缓存。
 

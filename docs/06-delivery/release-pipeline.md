@@ -112,6 +112,18 @@ Solon 2.7 的外部配置路径在含空格目录下存在既有读取差异，J
 - 未配置开发者签名证书或公证。远端构建成功不等同于已执行安装、macOS 原生窗口检查、长期稳定性或生产环境兼容验收。
 - 本次发布只提交发版流程、必要配置和上述验证修正；工作区中另一次未提交的界面调整未加入此 tag，予以保留。
 
+### v2.0.4 发布记录
+
+用户于 2026-10-15 明确要求正式发布 `v2.0.4`。本次源码为 `be080e19987fca69aeb10fe1b0b084bf63073bf4`，包含新的简约界面、托盘浮层与项目 Logo 适配；通过原子推送同时更新远端 `master` 并创建远端 `v2.0.4`，触发[本次构建](https://github.com/ynx-official/neutrino-proxy/actions/runs/38696422385)。
+
+本地发布前验证：21 项 Python 发布脚本回归、13 项桌面组件测试、8 项浏览器流程、15 项 Rust workspace 测试均通过；`actionlint`、Rust 格式检查和 Clippy（警告视为错误）通过。未执行 App 安装或 macOS 原生窗口验证。
+
+本机已有指向旧上游提交 `6389c8bf43a8e3523e037fcc526447af2ebeb0e1` 的历史同名 tag；它未被修改。发布前已确认目标远端没有该 tag 或同名 Release，因此直接以本次源码提交创建远端 tag。本次发布的引用与来源应以远端 tag 和 manifest 为准，不能把这个历史本地 tag 当作新发布来源。
+
+2026-10-15 15:36:54（Asia/Shanghai）已自动公开 [v2.0.4 正式 Release](https://github.com/ynx-official/neutrino-proxy/releases/tag/v2.0.4)，`draft=false`、`prerelease=false`，并设置为最新版本；本次 Actions 的全部 9 个作业成功。JAR、Linux / Windows native 分发包均通过构建与启动检查；Windows 安装程序和便携 ZIP、Intel / Apple Silicon DMG 全部生成。App 按已确认规则不使用开发者证书或公证。
+
+发布后再次通过 GitHub API 与下载的 `SHA256SUMS`、`release-manifest.json` 核验：12 个附件准确齐备，所有远端 SHA-256 digest 一致；10 个分发文件的名称、大小和哈希与 manifest 一致；manifest、远端 tag、工作流与 Release 的源码均为上述提交。此结果证明构建与分发成功，不增加未执行的安装、原生交互或长期稳定性验收结论。
+
 ## 官方依据
 
 - [GitHub Actions 工作流与 tag 过滤](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)

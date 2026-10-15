@@ -21,7 +21,7 @@
 
 ## 发版与分发
 
-- [统一发版构建流](06-delivery/release-pipeline.md)：`v*` tag 自动构建服务端、命令行客户端和桌面 App，产物齐备后自动公开正式 Release；无需配置 App 签名证书。
+- [统一发版构建流](06-delivery/release-pipeline.md)：`v*` tag 自动构建服务端、命令行客户端和桌面 App，产物齐备后自动公开正式 Release；无需配置 App 签名证书。含 `v2.0.3`、`v2.0.4` 的实际发布及校验记录。
 
 ## 既有资料
 
