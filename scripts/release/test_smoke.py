@@ -2,11 +2,25 @@
 
 import struct
 import unittest
+from unittest.mock import Mock, patch
 
-from smoke import management_script, verify_auth_frame
+from smoke import cleanup_with_retry, management_script, verify_auth_frame
 
 
 class SmokeTests(unittest.TestCase):
+    def test_cleanup_retries_temporary_windows_image_lock(self):
+        cleanup = Mock(side_effect=[PermissionError('image still closing'), PermissionError('image still closing'), None])
+        with patch('smoke.time.sleep') as sleep:
+            cleanup_with_retry(cleanup)
+        self.assertEqual(cleanup.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_cleanup_does_not_hide_persistent_permission_failure(self):
+        cleanup = Mock(side_effect=PermissionError('still locked'))
+        with patch('smoke.time.sleep'), self.assertRaises(PermissionError):
+            cleanup_with_retry(cleanup)
+        self.assertEqual(cleanup.call_count, 6)
+
     def test_minified_management_html_does_not_require_quoted_attributes(self):
         self.assertEqual(management_script('<div id=app></div><script src=./static/js/app.js></script>'),
                          './static/js/app.js')

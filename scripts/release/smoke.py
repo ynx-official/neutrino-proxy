@@ -23,12 +23,35 @@ def free_port():
         return listener.getsockname()[1]
 
 
+def cleanup_with_retry(cleanup):
+    """Windows can release an executable's image handle shortly after process exit."""
+    for attempt in range(6):
+        try:
+            cleanup()
+            return
+        except PermissionError:
+            if attempt == 5:
+                raise
+            time.sleep(0.2 * 2 ** attempt)
+
+
+@contextmanager
+def temporary_bundle_directory():
+    temp = tempfile.TemporaryDirectory(prefix="np-")
+    folder = Path(temp.name).resolve()
+    if folder.parent != Path(tempfile.gettempdir()).resolve():
+        raise ValueError("Unexpected smoke-test temporary directory")
+    try:
+        yield folder
+    finally:
+        cleanup_with_retry(temp.cleanup)
+
+
 @contextmanager
 def running_bundle(archive, env):
     # Solon 2.7's external-config lookup does not decode spaces in file URLs.
     # Launcher cwd/argument handling with spaces is covered separately.
-    with tempfile.TemporaryDirectory(prefix="np-") as temp:
-        folder = Path(temp)
+    with temporary_bundle_directory() as folder:
         unpack_bundle(archive, folder)
         homes = list(folder.iterdir())
         if len(homes) != 1 or not homes[0].is_dir():

@@ -126,9 +126,11 @@ test("connected layout matches the approved information hierarchy", async ({
     page.getByRole("heading", { name: "已连接", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "断开连接" })).toBeVisible();
-  await expect(
-    page.getByText("关闭窗口后仍会保持连接，可从托盘重新打开"),
-  ).toBeVisible();
+  await expect(page.locator(".hero-endpoint")).toHaveText("edge.example.com:9002");
+  await expect(page.locator(".hero-duration strong")).toHaveText(/\d{2}:\d{2}:\d{2}/);
+  await page.getByRole("button", { name: "断开连接" }).click();
+  await expect(page.getByRole("heading", { name: "尚未连接", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "连接", exact: true })).toBeVisible();
   await expect(
     page.getByText("License 验证通过", { exact: true }),
   ).toBeVisible();

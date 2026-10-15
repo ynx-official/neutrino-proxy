@@ -96,6 +96,12 @@ Solon 2.7 的外部配置路径在含空格目录下存在既有读取差异，J
 
 本机没有执行 Linux/macOS 原生构建、GraalVM native 编译、App 安装及 macOS 原生窗口验证，也没有执行真实 GitHub 上传或公开。本地脚本回归测试与 YAML 检查不代替全平台 CI 或完整产品验收；尚未创建、推送 tag。
 
+### v2.0.3 首次远端构建与修正
+
+用户随后明确授权提交、推送及构建 `v2.0.3`。首次提交为 `9f12f375`，对应 [Actions 运行](https://github.com/ynx-official/neutrino-proxy/actions/runs/38687780250)。JAR、Linux native、Apple Silicon App 构建通过；Windows native 的服务端启动、后台资源及隧道检查通过，随后因刚退出的 exe 暂时仍被系统占用而清理失败。Windows App 的旧浏览器测试仍要求已经移除的提示文案，也未通过，因此没有公开 Release。
+
+修正保留全部业务验证：临时目录清理在 `PermissionError` 时最多等待约 6 秒，持续失败仍终止构建；浏览器用服务器地址、连接时长、点击断开后的状态及重新连接入口验证替代过时文案。新增临时占用及持续占用回归测试，本地 21 项发布脚本测试和提交版本的 4 项浏览器流程通过。由于版本尚未公开，仅将本次新建的 tag 更新到修复提交后重建；使用旧 tag 对象的 lease 防止覆盖其他人随后更新的引用。
+
 ## 官方依据
 
 - [GitHub Actions 工作流与 tag 过滤](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)
