@@ -19,6 +19,10 @@
 
 样图文件：[已连接主页](02-design/assets/client-app-connected.png)、[首次连接配置](02-design/assets/client-app-connection-setup.png)。用户已确认 `airtable` 风格；图片为概念设计，包含虚构示例数据。
 
+## 发版与分发
+
+- [统一发版构建流](06-delivery/release-pipeline.md)：`v*` tag 自动构建服务端、命令行客户端和桌面 App，产物齐备后自动公开正式 Release；无需配置 App 签名证书。
+
 ## 既有资料
 
 以下保留既有路径和内容；本次未对其时效性逐项审查。

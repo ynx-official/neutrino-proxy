@@ -36,6 +36,10 @@ rm(path.join(config.build.assetsRoot, config.build.assetsSubDirectory), err => {
       '  Tip: built files are meant to be served over an HTTP server.\n' +
       '  Opening index.html over file:// won\'t work.\n'
     ))
+    // webpack 3 workers may keep IPC handles open on modern Node after all files are written.
+    if (process.env.env_config === 'release') {
+      process.exit(0)
+    }
     if(process.env.npm_config_preview){
       server.start({
           port: 9526,

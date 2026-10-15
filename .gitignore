@@ -36,6 +36,7 @@ hs_err_pid*
 # 前端
 **/package-lock.json
 !neutrino-proxy-client-app/package-lock.json
+!neutrino-proxy-admin/package-lock.json
 **/yarn.lock
 
 **/tests/**/coverage/
@@ -68,3 +69,7 @@ rebel.xml
 neutrino-proxy-client-app/test-results/
 neutrino-proxy-client-app/playwright-report/
 neutrino-proxy-client-app/.local-test/
+
+# Release tooling outputs
+release-assets/
+**/__pycache__/

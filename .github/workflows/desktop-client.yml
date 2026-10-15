@@ -3,6 +3,7 @@ permissions:
   contents: read
 on:
   push:
+    branches: ['**']
     paths: ['neutrino-proxy-client-app/**', '.github/workflows/desktop-client.yml']
   pull_request:
     paths: ['neutrino-proxy-client-app/**', '.github/workflows/desktop-client.yml']
