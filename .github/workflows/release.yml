@@ -107,6 +107,9 @@ jobs:
           - runner: ubuntu-22.04
             kind: native
             platform: linux-x64
+          - runner: ubuntu-22.04
+            kind: native
+            platform: linux-x64-musl-static
           - runner: windows-2022
             kind: native
             platform: windows-x64
@@ -129,6 +132,7 @@ jobs:
         with:
           java-version: '21.0.2'
           distribution: graalvm-community
+          native-image-musl: ${{ matrix.platform == 'linux-x64-musl-static' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
       - if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
@@ -152,8 +156,12 @@ jobs:
         if: matrix.kind == 'native'
         run: |
           mvn -B -ntp -DskipTests="$SKIP_TESTS" -pl neutrino-proxy-core -am clean install
+          profiles=native
+          if [ "$BUILD_PLATFORM" = linux-x64-musl-static ]; then
+            profiles=native,native-musl
+          fi
           for module in neutrino-proxy-server neutrino-proxy-client; do
-            (cd "$module" && mvn -B -ntp -DskipTests="$SKIP_TESTS" -Pnative native:compile)
+            (cd "$module" && mvn -B -ntp -DskipTests="$SKIP_TESTS" -P"$profiles" native:compile)
           done
       - name: Package final archives
         run: |
@@ -161,9 +169,15 @@ jobs:
             python scripts/release/release.py java --tag "$RELEASE_TAG" --module "$module" --kind "$BUILD_KIND" --platform "$BUILD_PLATFORM"
           done
           python scripts/release/release.py record --tag "$RELEASE_TAG" --label "java-$BUILD_KIND-$BUILD_PLATFORM"
+      - name: Require fully static ELF files in the final musl archives
+        if: matrix.platform == 'linux-x64-musl-static'
+        run: python scripts/release/linux_compatibility.py --tag "$RELEASE_TAG" --mode inspect
       - name: Smoke-test final archives
         if: env.SKIP_TESTS != 'true'
         run: python scripts/release/smoke.py --tag "$RELEASE_TAG" --kind "$BUILD_KIND" --platform "$BUILD_PLATFORM"
+      - name: Smoke-test musl archives in pinned CentOS 7 userspace
+        if: matrix.platform == 'linux-x64-musl-static' && env.SKIP_TESTS != 'true'
+        run: python scripts/release/linux_compatibility.py --tag "$RELEASE_TAG" --mode smoke
       - uses: actions/upload-artifact@v4
         with:
           name: release-java-${{ matrix.kind }}-${{ matrix.platform }}
@@ -283,7 +297,7 @@ jobs:
           pattern: release-desktop-*
           path: release-assets
           merge-multiple: true
-      - name: Validate all ten outputs and generate checksums
+      - name: Validate all twelve outputs and generate checksums
         run: python scripts/release/release.py assemble --tag "$RELEASE_TAG" --commit "$RELEASE_COMMIT" --run-url "$RUN_URL"
       - uses: actions/upload-artifact@v4
         with:

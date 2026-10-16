@@ -1,6 +1,7 @@
 """Regression checks for the distributable files, independent of build tools."""
 
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -128,23 +129,56 @@ class ReleaseTests(unittest.TestCase):
         with zipfile.ZipFile(self.out / "neutrino-proxy-client-app-2.1.0-windows-x64-portable.zip") as bundle:
             self.assertEqual(bundle.read("neutrino-proxy-client-app-2.1.0-windows-x64/neutrino-proxy-client-app.exe"), b"app")
 
-    def test_manifest_requires_all_ten_assets_and_hashes_file_contents(self):
+    def test_musl_archive_has_an_explicit_name_and_unix_launcher(self):
+        archive = self.make_java(kind="native", platform="linux-x64-musl-static")
+        self.assertEqual(archive.name, "neutrino-proxy-client-2.1.0-linux-x64-musl-static.zip")
+        with zipfile.ZipFile(archive) as bundle:
+            home = "neutrino-proxy-client-2.1.0-linux-x64-musl-static"
+            self.assertIn(home + "/start.sh", bundle.namelist())
+            self.assertNotIn(home + "/start.cmd", bundle.namelist())
+
+    def test_manifest_requires_all_twelve_assets_and_hashes_file_contents(self):
         self.out.mkdir()
         expected = release.expected_assets("2.1.0")
-        self.assertEqual(len(expected), 10)
+        self.assertEqual(len(expected), 12)
         for name in expected[:-1]:
             (self.out / name).write_bytes(b"package")
         with self.assertRaises(ValueError):
             release.assemble(self.out, "2.1.0", "a" * 40, "https://example.invalid/run")
         (self.out / expected[-1]).write_bytes(b"package")
+        # Even a release that skips runtime tests must supply static-link evidence.
+        with self.assertRaises(FileNotFoundError):
+            release.assemble(self.out, "2.1.0", "a" * 40, "https://example.invalid/run")
+        self.static_report()
         release.assemble(self.out, "2.1.0", "a" * 40, "https://example.invalid/run")
         manifest = json.loads((self.out / "release-manifest.json").read_text())
-        self.assertEqual(len(manifest["assets"]), 10)
+        self.assertEqual(len(manifest["assets"]), 12)
         self.assertEqual(manifest["desktop_signing"], "unsigned-no-notarization")
         self.assertEqual(manifest["assets"][0]["sha256"], __import__("hashlib").sha256(b"package").hexdigest())
         self.assertIn("release-manifest.json", (self.out / "SHA256SUMS").read_text())
         (self.out / "unexpected.zip").write_bytes(b"extra")
         with self.assertRaises(ValueError):
+            release.assemble(self.out, "2.1.0", "a" * 40, "https://example.invalid/run")
+
+    def static_report(self):
+        archives = []
+        for module in ("server", "client"):
+            name = f"neutrino-proxy-{module}-2.1.0-linux-x64-musl-static.zip"
+            archives.append({"name": name, "sha256": hashlib.sha256((self.out / name).read_bytes()).hexdigest(),
+                             "binary_sha256": "b" * 64, "architecture": "x86_64", "interpreter": None,
+                             "needed_libraries": [], "glibc_versions": []})
+        release.write_json(self.out / "build-info/linux-musl-compatibility.json", {
+            "version": "2.1.0", "linkage": "static-musl", "elf_inspection": "passed", "archives": archives,
+            "runtime": {"centos7_container": "passed", "kernel_3_10": "not_verified"},
+        })
+
+    def test_static_evidence_must_match_the_published_archives(self):
+        self.out.mkdir()
+        for name in release.expected_assets("2.1.0"):
+            (self.out / name).write_bytes(b"package")
+        self.static_report()
+        (self.out / "neutrino-proxy-client-2.1.0-linux-x64-musl-static.zip").write_bytes(b"replaced")
+        with self.assertRaisesRegex(ValueError, "Static archive checksum"):
             release.assemble(self.out, "2.1.0", "a" * 40, "https://example.invalid/run")
 
     def test_unpack_rejects_archive_path_traversal(self):

@@ -22,6 +22,7 @@
 
 ## 发版与分发
 
+- [Linux 原生包兼容性](05-operations/linux-native-compatibility.md)：CentOS 7 / glibc 2.17 的包选择、musl 全静态构建、强制 ELF 检查与内核 3.10 实机验收边界。
 - [统一发版构建流](06-delivery/release-pipeline.md)：`v*` tag 自动构建服务端、命令行客户端和桌面 App，产物齐备后自动公开正式 Release；无需配置 App 签名证书。含历史版本及当前 `v2.0.6` 正式发布记录，本次按用户要求跳过测试，全部 9 个作业成功，12 个附件和哈希核验通过。
 
 ## 既有资料

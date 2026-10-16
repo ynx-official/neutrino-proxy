@@ -3,6 +3,7 @@
 import hashlib
 import contextlib
 import io
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -47,13 +48,22 @@ class PublishTests(unittest.TestCase):
         self.output = Path(self.temp.name)
         for name in expected_assets("2.1.0"):
             (self.output / name).write_bytes(b"fixture package")
+        from release import write_json
+        write_json(self.output / "build-info/linux-musl-compatibility.json", {
+            "version": "2.1.0", "linkage": "static-musl", "elf_inspection": "passed",
+            "archives": [{"name": name, "sha256": hashlib.sha256(b"fixture package").hexdigest(),
+                          "binary_sha256": "b" * 64, "architecture": "x86_64", "interpreter": None,
+                          "needed_libraries": [], "glibc_versions": []}
+                         for name in expected_assets("2.1.0") if "musl-static" in name],
+            "runtime": {"centos7_container": "passed", "kernel_3_10": "not_verified"},
+        })
         assemble(self.output, "2.1.0", "a" * 40, "https://example.invalid/run")
 
     def test_success_automatically_publishes_stable_after_all_uploads(self):
         api = FakeAPI()
         publish("test/repo", "v2.1.0", "a" * 40, self.output, api)
         uploads = [call for call in api.calls if call[1].startswith("https://uploads.github.com/")]
-        self.assertEqual(len(uploads), 12)
+        self.assertEqual(len(uploads), 14)
         self.assertEqual(api.calls[-1][0], "PATCH")
         self.assertFalse(api.calls[-1][2]["draft"])
         self.assertFalse(api.calls[-1][2]["prerelease"])
@@ -94,6 +104,21 @@ class PublishTests(unittest.TestCase):
             publish("test/repo", "v2.1.0", "a" * 40, self.output, api)
         self.assertTrue(api.calls)
         self.assertFalse(any(call[0] != "GET" for call in api.calls))
+
+    def test_static_compatibility_evidence_is_required_before_upload(self):
+        api = FakeAPI()
+        path = self.output / "release-manifest.json"
+        manifest = json.loads(path.read_text())
+        manifest["linux_compatibility"]["archives"][0]["needed_libraries"] = ["libc.so.6"]
+        path.write_text(json.dumps(manifest))
+        checksums = self.output / "SHA256SUMS"
+        lines = checksums.read_text().splitlines()
+        checksums.write_text("\n".join(
+            hashlib.sha256(path.read_bytes()).hexdigest() + "  release-manifest.json"
+            if line.endswith("  release-manifest.json") else line for line in lines) + "\n")
+        with self.assertRaisesRegex(ValueError, "not fully static"):
+            publish("test/repo", "v2.1.0", "a" * 40, self.output, api)
+        self.assertEqual(api.calls, [])
 
 
 if __name__ == "__main__":

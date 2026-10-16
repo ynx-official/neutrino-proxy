@@ -16,7 +16,7 @@ tag 必须为可用于安装包的版本，例如 `v2.1.0` 或 `v2.1.0-rc.1`。`
 
 ## 发布产物
 
-下列文件使用去除 `v` 的 tag 版本，示例为 `2.1.0`。每次必须齐备 10 个安装或分发文件，另附 2 个校验与溯源文件。
+下列文件使用去除 `v` 的 tag 版本，示例为 `2.1.0`。从 `v2.0.7` 起，每次必须齐备 12 个安装或分发文件，另附 2 个校验与溯源文件；历史版本的产物数量不变。
 
 | 文件 | 内容及运行条件 |
 |---|---|
@@ -24,6 +24,8 @@ tag 必须为可用于安装包的版本，例如 `v2.1.0` 或 `v2.1.0-rc.1`。`
 | `neutrino-proxy-client-2.1.0-jdk21.zip` | 既有客户端胖 JAR、配置模板、双平台启动脚本、许可证；需要 Java 21，可用于 Linux、Windows、macOS |
 | `neutrino-proxy-server-2.1.0-linux-x64-native.zip` | Linux x64 服务端、配置与启动脚本 |
 | `neutrino-proxy-client-2.1.0-linux-x64-native.zip` | Linux x64 命令行客户端、配置与启动脚本 |
+| `neutrino-proxy-server-2.1.0-linux-x64-musl-static.zip` | Linux x64 musl 全静态服务端、配置与启动脚本，不依赖系统 glibc |
+| `neutrino-proxy-client-2.1.0-linux-x64-musl-static.zip` | Linux x64 musl 全静态命令行客户端、配置与启动脚本，不依赖系统 glibc |
 | `neutrino-proxy-server-2.1.0-windows-x64-native.zip` | Windows x64 服务端、配置与启动脚本 |
 | `neutrino-proxy-client-2.1.0-windows-x64-native.zip` | Windows x64 命令行客户端、配置与启动脚本 |
 | `neutrino-proxy-client-app-2.1.0-windows-x64-setup.exe` | Windows x64 NSIS 安装程序，按 Tauri 默认行为安装缺失的 WebView2 |
@@ -33,7 +35,7 @@ tag 必须为可用于安装包的版本，例如 `v2.1.0` 或 `v2.1.0-rc.1`。`
 | `release-manifest.json` | tag、提交 SHA、工作流运行链接、构建工具版本、签名状态、各产物大小及 SHA-256 |
 | `SHA256SUMS` | 10 个分发文件与 manifest 的 SHA-256 |
 
-Linux native 当前以 Ubuntu 22.04 / glibc 环境构建和验证，不承诺 Alpine/musl 或更旧 glibc 兼容。Linux ARM64、macOS Java native、Docker 镜像、一键下载安装、系统服务安装和自动更新未纳入本轮。
+普通 `linux-x64-native` 仍在 Ubuntu 22.04 / glibc 环境构建，不能用于 glibc 2.17 主机。新增 `linux-x64-musl-static` 使用独立构建矩阵与全静态链接；静态检查通过仅证明没有系统 glibc / 动态库依赖，不等于 Linux 3.10 内核功能验收通过。选择、验证和部署边界见 [Linux 原生包兼容性](../05-operations/linux-native-compatibility.md)。Linux ARM64、macOS Java native、运行用 Docker 镜像、一键下载安装、系统服务安装和自动更新未纳入本轮。
 
 App 不使用开发者证书：Windows 未签名；macOS 仅使用 `-` 身份进行 ad-hoc 签名以满足平台二进制要求，不公证。系统可能显示 SmartScreen/Gatekeeper 提示或阻止首次启动；这些产物不能被称为已通过平台信任认证。这里的 App 代码签名与连接隧道的 SSL 证书是两套独立机制，不改变应用的 SSL 校验规则。
 
@@ -41,11 +43,12 @@ App 不使用开发者证书：Windows 未签名；macOS 仅使用 `-` 身份进
 
 1. `prepare`：校验 tag，解析其实际提交 SHA，运行打包与发布回归测试。后续构建全部检出这个 SHA，避免手动运行时混用默认分支代码。
 2. `admin`：使用 Node 20.19.5、提交的 npm 锁文件及 `npm ci --legacy-peer-deps` 构建旧 Vue 管理后台。webpack 3 需要 `--openssl-legacy-provider`；该兼容选项仅限这个构建作业。`build:release` 使用生产模式和同源 `/neutrino-proxy-server` API，避免把既有 `api-prod` 占位地址打入发布包。
-3. `java`：分别构建通用 JAR、Linux x64 native、Windows x64 native。管理后台只构建一次并复用；native 使用 GraalVM Community 21.0.2，Windows 初始化 MSVC。JAR 和 native 分开作业，避免 `clean` 删除待发布 JAR。发布准备阶段把后台映射设为 `classpath:static/`；外置 `app.yml` 从构建后的完整配置生成，不复用含空 `protocol` 节点的旧 `app-copy.yml`，避免覆盖协议默认值。
+3. `java`：分别构建通用 JAR、Linux x64 glibc native、Linux x64 musl static、Windows x64 native。管理后台只构建一次并复用；native 使用 GraalVM Community 21.0.2，Windows 初始化 MSVC。musl 作业通过官方 `native-image-musl` 安装工具链，启用 `native,native-musl` profile，传入 `--static --libc=musl -march=compatibility`；不会在失败时退回 glibc 构建。JAR 和 native 分开作业，避免 `clean` 删除待发布 JAR。发布准备阶段把后台映射设为 `classpath:static/`；外置 `app.yml` 从构建后的完整配置生成，不复用含空 `protocol` 节点的旧 `app-copy.yml`，避免覆盖协议默认值。
 4. `desktop`：在 Windows、Intel macOS、ARM macOS runner 上分别执行组件测试、Rust workspace 测试、格式及 Clippy 检查；Windows 额外执行浏览器流程。生成平台图标并使用 Tauri bundler 输出 NSIS/DMG，Cargo 参数使用 `-- --locked` 传递。
 5. Java 发布包解压至临时目录，通过包内启动脚本启动。服务端检查独立 H2 数据目录、HTTP 管理页面、其 JavaScript 资源和隧道端口；客户端检查虚构本地对端上的认证请求与成功响应。测试不连接用户数据库或真实服务，不使用真实 License。
-6. `publish`：等待所有构建成功，核对 10 个产物的准确文件名，生成 manifest 和校验和，保存完整 Actions artifact。只有此作业拥有 `contents: write`。
-7. 发布脚本重新验证本地哈希与 tag 指向。内部先创建临时私有草稿，上传并核验所有附件的服务端 SHA-256，随后**自动**设置 `draft=false`、`prerelease=false`、`make_latest=true`，无审批或等待步骤。该内部草稿只防止上传一半就公开。
+6. musl 最终分发 ZIP 中的两个 ELF 必须通过 `readelf` 检查：ELF64 / x86_64、无 `INTERP`、无 `DT_NEEDED`、无 `GLIBC_*` 版本依赖。检查记录绑定最终 ZIP 和二进制的 SHA-256，汇总与上传前再次检查。该静态链接门禁不受 `skip_tests` 影响。默认另用固定 digest 的 CentOS 7 容器复用启动 / H2 / 管理后台资源 / 本地认证握手冒烟；容器共享 runner 内核，不计为 3.10 实机验证。
+7. `publish`：等待所有构建成功，核对 12 个产物的准确文件名，生成 manifest 和校验和，保存完整 Actions artifact；manifest 包含 Linux 静态链接与用户态测试证据。只有此作业拥有 `contents: write`。
+8. 发布脚本重新验证本地哈希与 tag 指向。内部先创建临时私有草稿，上传并核验所有附件的服务端 SHA-256，随后**自动**设置 `draft=false`、`prerelease=false`、`make_latest=true`，无审批或等待步骤。该内部草稿只防止上传一半就公开。
 
 版本注入仅修改 CI 临时检出目录：Maven revision、Java 内置应用版本、npm/package-lock、Tauri 配置、两个 Rust 包和 Cargo.lock 同步更新。不向仓库回写版本提交，不在构建阶段创建 tag。
 
@@ -150,6 +153,12 @@ Solon 2.7 的外部配置路径在含空格目录下存在既有读取差异，J
 - Python 发布回归、桌面 Vue / Rust 测试、浏览器流程和 Java 运行冒烟步骤均为 `skipped`，Maven 使用 `-DskipTests=true`；manifest 确认 `tests_skipped=true`。构建、Rust 格式及 Clippy、产物清单与来源校验保持必需并通过。公开说明已补充本次变更和跳过测试的事实。
 - 开发阶段的本地验证记录仍为历史依据，本次未重新执行功能测试、安装、原生托盘交互、真实服务连接、长期资源或 macOS 实机功能验收。未覆盖旧版本或改变后续默认测试策略。
 
+### v2.0.7 静态 Linux 包改造（2026-10-16）
+
+用户报告 `v2.0.6` 的 Linux native 在 CentOS 7.9、内核 3.10、glibc 2.17 上出现 `GLIBC_2.32` / `GLIBC_2.34` 缺失，并明确授权实施 musl 全静态包、兼容性检查和新补丁版本发布，要求本次跳过测试。本次按 `v2.0.7` 执行，保留 `v2.0.6` 及原有普通 glibc 分发文件。
+
+按次使用 `workflow_dispatch` 的 `publish=true`、`skip_tests=true`；Python / Vue / Rust / 浏览器 / Java 与 CentOS 7 运行冒烟均跳过。新增回归测试保留在默认测试流程，本次不运行。工作流语法、Python 编译、Maven 有效配置、Rust 格式及 Clippy、实际构建、静态 ELF 检查、产物齐备与哈希校验仍执行。CentOS 7 用户态及内核 3.10 实机 / VM、TLS 与完整转发矩阵均未因本次构建而视为已验证。
+
 ## 官方依据
 
 - [GitHub Actions 工作流与 tag 过滤](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)
@@ -157,3 +166,5 @@ Solon 2.7 的外部配置路径在含空格目录下存在既有读取差异，J
 - [GitHub Release 附件 API 与 SHA-256 digest](https://docs.github.com/en/rest/releases/assets)
 - [Tauri GitHub 构建](https://v2.tauri.app/distribute/pipelines/github/)、[分发与签名](https://v2.tauri.app/distribute/)
 - [node-sass 9 / Node 20 兼容表](https://github.com/sass/node-sass#node-version-support-policy)
+- [GraalVM 全静态 musl 与 mostly-static 的区别](https://www.graalvm.org/jdk21/reference-manual/native-image/guides/build-static-executables/)
+- [官方 GraalVM Action 的 native-image-musl 输入](https://github.com/graalvm/setup-graalvm)

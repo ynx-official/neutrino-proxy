@@ -112,7 +112,7 @@ def package_java(root, output, module, kind, platform, version):
     name = f"neutrino-proxy-{module}"
     suffix = ".jar" if kind == "jar" else ".exe" if platform == "windows-x64" else ""
     source = require_file(root / name / "target" / (name + suffix))
-    layout = f"{name}-{version}-jdk21" if kind == "jar" else f"{name}-{version}-{platform}-native"
+    layout = f"{name}-{version}-{java_distribution_suffix(kind, platform)}"
     with tempfile.TemporaryDirectory() as temp:
         directory = Path(temp) / layout
         directory.mkdir()
@@ -174,15 +174,47 @@ def expected_assets(version):
     files = [f"neutrino-proxy-{module}-{version}-jdk21.zip" for module in ("server", "client")]
     files += [f"neutrino-proxy-{module}-{version}-{platform}-native.zip"
               for platform in ("linux-x64", "windows-x64") for module in ("server", "client")]
+    files += [f"neutrino-proxy-{module}-{version}-linux-x64-musl-static.zip" for module in ("server", "client")]
     prefix = f"neutrino-proxy-client-app-{version}"
     return files + [prefix + "-windows-x64-setup.exe", prefix + "-windows-x64-portable.zip",
                     prefix + "-macos-x64.dmg", prefix + "-macos-arm64.dmg"]
 
 
+def java_distribution_suffix(kind, platform):
+    """Keep archive names identical across packaging and runtime checks."""
+    if kind == "jar":
+        return "jdk21"
+    return platform if platform == "linux-x64-musl-static" else platform + "-native"
+
+
+def validate_linux_static(output, version, tests_skipped=False, report=None, require_runtime=True):
+    """Bind mandatory ELF inspection evidence to the exact archives being published."""
+    if report is None:
+        report = json.loads(require_file(output / "build-info/linux-musl-compatibility.json").read_text(encoding="utf-8"))
+    if report.get("version") != version or report.get("linkage") != "static-musl" or report.get("elf_inspection") != "passed":
+        raise ValueError("Missing static musl inspection evidence")
+    expected = {name for name in expected_assets(version) if "musl-static" in name}
+    archives = report.get("archives", [])
+    if len(archives) != len(expected) or {item["name"] for item in archives} != expected:
+        raise ValueError("Static inspection archive list mismatch")
+    for item in archives:
+        if (item.get("architecture") != "x86_64" or item.get("interpreter") is not None
+                or item.get("needed_libraries") != [] or item.get("glibc_versions") != []
+                or not re.fullmatch("[0-9a-f]{64}", item.get("binary_sha256", ""))):
+            raise ValueError("Linux musl output is not fully static")
+        if hashlib.sha256(require_file(output / item["name"]).read_bytes()).hexdigest() != item["sha256"]:
+            raise ValueError("Static archive checksum does not match inspection evidence")
+    runtime = report.get("runtime", {}).get("centos7_container")
+    if require_runtime and runtime != ("skipped_by_request" if tests_skipped else "passed"):
+        raise ValueError("CentOS 7 userspace smoke result does not match the test policy")
+    return report
+
+
 def record_build(output, label):
     versions = {}
     for tool, args in (("java", ["-version"]), ("mvn", ["--version"]), ("node", ["--version"]),
-                       ("npm", ["--version"]), ("rustc", ["--version"]), ("cargo", ["--version"])):
+                       ("npm", ["--version"]), ("rustc", ["--version"]), ("cargo", ["--version"]),
+                       ("readelf", ["--version"]), ("x86_64-linux-musl-gcc", ["--version"])):
         executable = shutil.which(tool)
         if executable:
             result = subprocess.run([executable, *args], capture_output=True, text=True, timeout=30)
@@ -198,6 +230,8 @@ def assemble(output, version, commit, run_url):
     present -= {"SHA256SUMS", "release-manifest.json"}
     if expected != present:
         raise ValueError(f"Release assets mismatch: missing={sorted(expected - present)}, extra={sorted(present - expected)}")
+    tests_skipped = os.environ.get("SKIP_TESTS") == "true"
+    compatibility = validate_linux_static(output, version, tests_skipped)
     assets = [{"name": name, "size": require_file(output / name).stat().st_size,
                "sha256": hashlib.sha256((output / name).read_bytes()).hexdigest()} for name in sorted(expected)]
     builds = {path.stem: json.loads(path.read_text(encoding="utf-8"))
@@ -205,7 +239,7 @@ def assemble(output, version, commit, run_url):
     write_json(output / "release-manifest.json", {
         "version": version, "tag": "v" + version, "commit": commit, "workflow_run": run_url,
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "tests_skipped": os.environ.get("SKIP_TESTS") == "true",
+        "tests_skipped": tests_skipped, "linux_compatibility": compatibility,
         "desktop_signing": "unsigned-no-notarization", "builds": builds, "assets": assets,
     })
     names = sorted(expected | {"release-manifest.json"})
@@ -222,7 +256,7 @@ def main():
     parser.add_argument("--output", type=Path, default=ROOT / "release-assets")
     parser.add_argument("--module", choices=("server", "client"))
     parser.add_argument("--kind", choices=("jar", "native"))
-    parser.add_argument("--platform", choices=("any", "linux-x64", "windows-x64", "macos-x64", "macos-arm64"))
+    parser.add_argument("--platform", choices=("any", "linux-x64", "linux-x64-musl-static", "windows-x64", "macos-x64", "macos-arm64"))
     parser.add_argument("--target")
     parser.add_argument("--label")
     parser.add_argument("--commit")
@@ -232,7 +266,7 @@ def main():
     if args.command == "prepare":
         prepare_versions(args.root, version)
     elif args.command == "java":
-        if not args.module or not args.kind or (args.kind == "native" and args.platform not in ("linux-x64", "windows-x64")):
+        if not args.module or not args.kind or (args.kind == "native" and args.platform not in ("linux-x64", "linux-x64-musl-static", "windows-x64")):
             parser.error("java requires --module, --kind and (for native) --platform")
         print(package_java(args.root, args.output, args.module, args.kind, args.platform, version))
     elif args.command == "desktop":

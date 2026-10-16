@@ -13,8 +13,9 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+import uuid
 
-from release import ROOT, parse_version, unpack_bundle
+from release import ROOT, java_distribution_suffix, parse_version, unpack_bundle
 
 
 def free_port():
@@ -58,6 +59,18 @@ def running_bundle(archive, env):
             raise ValueError(f"Unexpected distribution layout: {archive}")
         home = homes[0]
         command = ["cmd.exe", "/d", "/c", "start.cmd"] if os.name == "nt" else ["sh", "./start.sh"]
+        container = None
+        if image := os.environ.get("NP_SMOKE_CONTAINER_IMAGE"):
+            if os.name == "nt":
+                raise ValueError("CentOS userspace smoke requires a Linux Docker host")
+            container = "np-smoke-" + uuid.uuid4().hex
+            command = ["docker", "run", "--rm", "--init", "--name", container, "--platform", "linux/amd64",
+                       "--network", "host", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+                       "--user", f"{os.getuid()}:{os.getgid()}",
+                       "--mount", f"type=bind,src={home},dst=/bundle", "--workdir", "/bundle"]
+            for key, value in env.items():
+                command += ["--env", f"{key}={value}"]
+            command += [image, "sh", "./start.sh"]
         with (folder / "smoke.log").open("wb") as log:
             process = subprocess.Popen(command, cwd=home, env={**os.environ, **env}, stdout=log,
                                        stderr=subprocess.STDOUT, start_new_session=os.name != "nt")
@@ -67,6 +80,9 @@ def running_bundle(archive, env):
                 print((folder / "smoke.log").read_text(encoding="utf-8", errors="replace")[-16000:])
                 raise
             finally:
+                if container:
+                    subprocess.run(["docker", "rm", "--force", container], stdout=subprocess.DEVNULL,
+                                   stderr=subprocess.DEVNULL, check=False, timeout=30)
                 if os.name == "nt":
                     subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
@@ -203,11 +219,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--tag", required=True)
     parser.add_argument("--kind", choices=("jar", "native"), required=True)
-    parser.add_argument("--platform", choices=("any", "linux-x64", "windows-x64"), required=True)
+    parser.add_argument("--platform", choices=("any", "linux-x64", "linux-x64-musl-static", "windows-x64"), required=True)
     parser.add_argument("--output", type=Path, default=ROOT / "release-assets")
     args = parser.parse_args()
     version = parse_version(args.tag)
-    suffix = "jdk21" if args.kind == "jar" else args.platform + "-native"
+    suffix = java_distribution_suffix(args.kind, args.platform)
     smoke_server(args.output / f"neutrino-proxy-server-{version}-{suffix}.zip")
     smoke_client(args.output / f"neutrino-proxy-client-{version}-{suffix}.zip")
 

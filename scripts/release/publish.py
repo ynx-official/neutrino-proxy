@@ -10,7 +10,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from release import ROOT, expected_assets, parse_version
+from release import ROOT, expected_assets, parse_version, validate_linux_static
 
 
 class GitHubAPI:
@@ -60,6 +60,7 @@ def verify_files(output, version, commit):
     manifest = json.loads((output / "release-manifest.json").read_text(encoding="utf-8"))
     if manifest["version"] != version or manifest["commit"] != commit:
         raise ValueError("Build version or commit does not match publication request")
+    validate_linux_static(output, version, manifest.get("tests_skipped") is True, manifest["linux_compatibility"])
     return sorted(names)
 
 
@@ -99,11 +100,19 @@ def publish(repository, tag, commit, output, api):
     marker = f"<!-- neutrino-release:{commit} -->"
     body = (f"{marker}\nRelease {tag} · commit `{commit}`\n\n"
             "Includes server and command-line client JAR distributions (Java 21), Linux/Windows native "
-            "distributions, Windows desktop installer and portable app, and Intel/Apple Silicon macOS DMGs.\n\n"
+            "distributions, fully static Linux x64 musl server/client packages, Windows desktop installer and "
+            "portable app, and Intel/Apple Silicon macOS DMGs.\n\n"
+            "For legacy glibc hosts, choose `linux-x64-musl-static.zip`; the ordinary `linux-x64-native.zip` "
+            "is dynamically linked and built on Ubuntu 22.04. Static ELF inspection is required for publication. "
+            "CentOS 7 userspace results and unverified Linux 3.10 kernel status are recorded in the manifest.\n\n"
             "Desktop apps have no developer certificate or notarization. macOS uses local ad-hoc signing only; "
             "Windows SmartScreen / macOS Gatekeeper may prompt or block launch. The Windows portable app "
             "requires WebView2. Tunnel SSL configuration is independent of app code signing.\n\n"
             "Verify downloads using `SHA256SUMS`; build provenance and tool versions are in `release-manifest.json`.\n")
+    manifest = json.loads((output / "release-manifest.json").read_text(encoding="utf-8"))
+    if manifest.get("tests_skipped") is True:
+        body += "\nRegression, runtime smoke and CentOS 7 userspace tests were skipped for this release at the user's request. "
+        body += "Builds, static ELF inspection, asset completeness and SHA-256 verification remain mandatory.\n"
     release = find_release(api, base, tag)
     if release is not None:
         if not release["draft"]:
