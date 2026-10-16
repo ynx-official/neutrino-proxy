@@ -5,9 +5,13 @@
 
 关联文档：[总体方案](../00-project/client-app-proposal.md)、[界面设计](../02-design/client-app-ui.md)、[架构设计](../03-architecture/client-app-architecture.md)、[完整验收计划](../04-quality/client-app-acceptance.md)、[本地运行](../05-operations/client-app-local-development.md)
 
-## 2026-10-16 v2.0.6 发布准备
+## 2026-10-16 v2.0.6 正式发布（当前公开版本）
 
-用户明确授权提交并推送本轮改动、正式发布且跳过测试。拟发布 `v2.0.6`，包含下方精简原生托盘与 `cargo run` 统一启动；沿用现有工作流，以 `publish=true`、`skip_tests=true` 构建和正式分发。本次不重跑开发测试，构建、静态检查、附件齐备及哈希溯源仍执行。实际公开状态与结果将在工作流完成后记录，不将下方开发测试视为本次发布重新运行。
+已按用户要求提交并推送源码 `4c47ea8ec6e45c81ffa908dba062a9f23b4952ad`，正式发布 [v2.0.6](https://github.com/ynx-official/neutrino-proxy/releases/tag/v2.0.6)，包含下方精简原生托盘与 `cargo run` 统一启动。本次以 `publish=true`、`skip_tests=true` 执行，[构建运行](https://github.com/ynx-official/neutrino-proxy/actions/runs/38863160071)全部 9 个作业成功；2026-10-16 14:57:28（Asia/Shanghai）公开为最新正式版本，`draft=false`、`prerelease=false`。
+
+12 个附件准确齐备，远端 digest 与下载的 `SHA256SUMS`、`release-manifest.json` 一致，10 个分发文件的大小与哈希匹配 manifest。源码、tag 和工作流来源一致，manifest 明确 `tests_skipped=true`；测试和运行冒烟步骤均为跳过，构建及静态检查通过。另下载 Windows 安装包和便携 ZIP 核对实际哈希，匹配公开附件；安装包文件版本及产品版本均为 `2.0.6`。发布说明已记录主要变更和本次跳过测试。
+
+本次发布没有重跑下方开发阶段测试，也未执行安装、系统菜单实际点击、真实服务连接、长期资源或 macOS 实机功能验收。完整分发证据见[统一发布记录](release-pipeline.md#v206-正式发布2026-10-16)。
 
 ## 2026-10-16 精简原生托盘与 cargo run 统一启动（开发记录）
 
@@ -24,9 +28,9 @@
 
 `npm run desktop:build`：Windows Release 构建通过，程序位于 `neutrino-proxy-client-app/target/release/neutrino-proxy-client-app.exe`，12024832 字节，SHA-256：`5221ed6d77902849b2e9b22e0090dfc20153d0aa135e48d2525d85bd9e25b264`。检查 MZ 文件头、九个菜单 PNG 均已内嵌，二进制不包含开发启动就绪标记、开发脚本路径、Vite 响应标记或旧 `tray.html`；生产前端仅生成主窗口 `index.html`。这是本地可执行文件，没有生成安装包或修改已安装版本。
 
-未进行系统菜单实际点击 / 收起、右键时延测量或 macOS 实机验证；原生句柄检查和浏览器测试不能替代这些平台验收。未提交、推送、创建 tag 或发布新版本；已公开的 v2.0.5 不包含本轮改动。
+开发阶段未进行系统菜单实际点击 / 收起、右键时延测量或 macOS 实机验证；原生句柄检查和浏览器测试不能替代这些平台验收。当时尚未提交、推送或发版，v2.0.5 不包含本节改动；后续已按用户新授权发布 v2.0.6，结果见本页上方，开发测试和本地产物哈希保留为历史依据。
 
-## 2026-10-16 v2.0.5 正式发布（当前公开版本）
+## 2026-10-16 v2.0.5 正式发布（历史记录）
 
 已按用户要求正式发布 [v2.0.5](https://github.com/ynx-official/neutrino-proxy/releases/tag/v2.0.5)，包含下述原生托盘和配置导入修复。源码为 `525b895a33812c811a2b3750b8730515e9553b9a`，本次不重跑开发测试，远端发布也显式跳过测试与运行冒烟，保留构建、静态检查、附件齐备、哈希和来源校验。
 

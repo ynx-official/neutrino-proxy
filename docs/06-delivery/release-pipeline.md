@@ -139,9 +139,16 @@ Solon 2.7 的外部配置路径在含空格目录下存在既有读取差异，J
 - 工作流中的 Python 回归、桌面 Vue / Rust 测试、浏览器流程和 Java 运行冒烟均显示 `skipped`；Maven 使用 `-DskipTests=true`。manifest 确认 `tests_skipped=true`，公开发布说明也明确记录本次跳过测试。
 - 未执行安装、原生菜单交互、真实服务器连接、长期资源占用或 macOS 实机功能验收；构建与分发完成不代表这些测试通过。未改变后续正常发布的默认测试策略。
 
-### v2.0.6 发布准备（2026-10-16）
+### v2.0.6 正式发布（2026-10-16）
 
-用户明确授权将精简原生托盘、菜单图标和 `cargo run` 统一启动改动提交推送并正式发布，按下一补丁版本 `v2.0.6` 执行。与 v2.0.5 相同，本次使用 `[skip ci]` 发布提交并通过 `workflow_dispatch` 指定 `publish=true`、`skip_tests=true`，跳过测试和运行冒烟，保留构建、静态检查、完整附件与哈希验证。正式公开和附件核验结果待本次工作流完成后更新；不覆盖已有版本或改变后续默认测试策略。
+用户明确授权将精简原生托盘、菜单图标和 `cargo run` 统一启动改动提交推送并正式发布，按下一补丁版本 `v2.0.6` 执行。源码提交 `4c47ea8ec6e45c81ffa908dba062a9f23b4952ad` 与新 tag 已原子推送；发布提交带 `[skip ci]`，通过 `workflow_dispatch` 指定 `publish=true`、`skip_tests=true`，未另行触发默认测试流程。
+
+[本次构建](https://github.com/ynx-official/neutrino-proxy/actions/runs/38863160071)全部 9 个作业成功，2026-10-16 14:57:28（Asia/Shanghai）公开 [v2.0.6 正式 Release](https://github.com/ynx-official/neutrino-proxy/releases/tag/v2.0.6)，`draft=false`、`prerelease=false`，并确认为最新版本。
+
+- 12 个附件准确齐备：服务端 / 命令行客户端 JAR、Linux x64 native、Windows x64 native 共 6 个 ZIP，Windows App 安装程序与便携 ZIP、Intel / Apple Silicon DMG 共 4 个桌面文件，另附 manifest 与校验和。
+- 下载 `release-manifest.json` 与 `SHA256SUMS`，逐个核对全部远端 digest；10 个分发文件的名称、大小及哈希与 manifest 一致，源码 tag、运行与 manifest 均指向上述提交。另从 Actions 下载两个 Windows 桌面分发文件，实际 SHA-256 与公开附件一致；安装程序的文件版本和产品版本均为 `2.0.6`。
+- Python 发布回归、桌面 Vue / Rust 测试、浏览器流程和 Java 运行冒烟步骤均为 `skipped`，Maven 使用 `-DskipTests=true`；manifest 确认 `tests_skipped=true`。构建、Rust 格式及 Clippy、产物清单与来源校验保持必需并通过。公开说明已补充本次变更和跳过测试的事实。
+- 开发阶段的本地验证记录仍为历史依据，本次未重新执行功能测试、安装、原生托盘交互、真实服务连接、长期资源或 macOS 实机功能验收。未覆盖旧版本或改变后续默认测试策略。
 
 ## 官方依据
 
