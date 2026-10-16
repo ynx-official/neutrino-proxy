@@ -5,7 +5,28 @@
 
 关联文档：[总体方案](../00-project/client-app-proposal.md)、[界面设计](../02-design/client-app-ui.md)、[架构设计](../03-architecture/client-app-architecture.md)、[完整验收计划](../04-quality/client-app-acceptance.md)、[本地运行](../05-operations/client-app-local-development.md)
 
-## 2026-10-16 v2.0.5 正式发布（当前）
+## 2026-10-16 v2.0.6 发布准备
+
+用户明确授权提交并推送本轮改动、正式发布且跳过测试。拟发布 `v2.0.6`，包含下方精简原生托盘与 `cargo run` 统一启动；沿用现有工作流，以 `publish=true`、`skip_tests=true` 构建和正式分发。本次不重跑开发测试，构建、静态检查、附件齐备及哈希溯源仍执行。实际公开状态与结果将在工作流完成后记录，不将下方开发测试视为本次发布重新运行。
+
+## 2026-10-16 精简原生托盘与 cargo run 统一启动（开发记录）
+
+用户确认新托盘预览并再次明确必须原生实现。本轮保留 Tauri Rust `Menu` / `IconMenuItem` / `TrayIconBuilder`，去掉重复应用标题与“状态：”前缀，状态行可打开连接页，服务器为禁用次要行，动作配小图标，仅两个分隔线。图标以 16 × 16 PNG 内嵌、启动时解码缓存，SVG 源文件同步保留；没有新增托盘 HTML、窗口、WebView、IPC 或依赖。
+
+`cargo run` 现在检查本机 Vite，缺少服务时自动启动并等待页面就绪，然后打开桌面程序；已有本项目开发服务会复用，其他程序占用端口明确报错。仅本次启动的服务由 Rust 持有，正常退出与父进程终止均清理；关闭主窗口保留托盘时仍可重建页面。生产构建不包含开发启动模块，不依赖 Node / Vite。操作方式见[本地开发](../05-operations/client-app-local-development.md)。
+
+本轮验证（2026-10-16，Windows）：
+
+- TDD：先加入状态行点击与直接 Cargo 启动 / 外部服务占用回归，在旧实现中稳定失败，再完成实现。Windows 关闭端口可能先返回超时的行为也由实际失败定位并修正。
+- `cargo test --workspace`：34 项通过（内核 12、导入 11、托盘 7、开发启动 4）。开发启动测试实际启动 Vite、请求页面、验证复用与自有进程清理；EOF 用例覆盖 Rust 析构未运行时的清理。原生测试实际创建 Windows 菜单句柄，检查已连接 / 未连接 / 断开中的八行结构、禁用项、图标项及互斥动作，不打开主窗口或读取用户配置。
+- `npm test`：13 项通过；`npm run test:e2e`：10 个主窗口流程通过；`cargo fmt --all --check`、`cargo clippy --workspace --all-targets -- -D warnings` 通过。未安装依赖或修改锁文件。
+- 实际执行 `cargo run`，通过临时 `TAURI_CONFIG` 使用独立应用标识与隐藏主窗口验证：自动 Vite 返回 HTTP 200、本项目标记与 Vue 入口，桌面进程及 WebView2 子进程成功启动。只终止本次拥有的桌面进程后，Cargo、Node / Vite 和 WebView2 全部退出，1420 端口不再监听；未操作日常客户端、真实连接或凭证。
+
+`npm run desktop:build`：Windows Release 构建通过，程序位于 `neutrino-proxy-client-app/target/release/neutrino-proxy-client-app.exe`，12024832 字节，SHA-256：`5221ed6d77902849b2e9b22e0090dfc20153d0aa135e48d2525d85bd9e25b264`。检查 MZ 文件头、九个菜单 PNG 均已内嵌，二进制不包含开发启动就绪标记、开发脚本路径、Vite 响应标记或旧 `tray.html`；生产前端仅生成主窗口 `index.html`。这是本地可执行文件，没有生成安装包或修改已安装版本。
+
+未进行系统菜单实际点击 / 收起、右键时延测量或 macOS 实机验证；原生句柄检查和浏览器测试不能替代这些平台验收。未提交、推送、创建 tag 或发布新版本；已公开的 v2.0.5 不包含本轮改动。
+
+## 2026-10-16 v2.0.5 正式发布（当前公开版本）
 
 已按用户要求正式发布 [v2.0.5](https://github.com/ynx-official/neutrino-proxy/releases/tag/v2.0.5)，包含下述原生托盘和配置导入修复。源码为 `525b895a33812c811a2b3750b8730515e9553b9a`，本次不重跑开发测试，远端发布也显式跳过测试与运行冒烟，保留构建、静态检查、附件齐备、哈希和来源校验。
 

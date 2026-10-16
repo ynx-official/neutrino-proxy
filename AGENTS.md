@@ -19,7 +19,7 @@
 - Style reference: `C:/Users/Administrator/.codex/skills/awesome-design-md/references/design-md/airtable/DESIGN.md`
 - Approved variant: 用户于 2026-10-15 确认简约样图；顶部导航、单一白色画布、细分隔线、无卡片与大色块。
 - Approved UI reference: `docs/02-design/assets/client-app-minimal-approved.png`；样图的布局与视觉优先，`airtable` 作为基础视觉来源，不自行恢复奶油导航或深绿面板。
-- Tray interaction: 用户于 2026-10-16 反馈右键卡顿，要求改为系统原生菜单；保留应用名、实时状态与服务器摘要、打开主窗口、查看日志、互斥连接操作及独立退出项。菜单跟随 Windows / macOS 原生外观，不创建托盘 WebView。
+- Tray interaction: 用户于 2026-10-16 再次明确必须使用系统原生菜单，并确认精简预览 `docs/02-design/assets/client-app-native-tray-approved.png`。去掉应用名称标题及“状态：”前缀；状态行带小图标、可打开连接页，服务器为禁用的次要行，操作带小图标、仅两个分隔线，连接 / 断开互斥。菜单跟随 Windows / macOS 原生外观，不创建托盘 WebView；预览不限定系统字体、行高或主题。
 - Previous tray reference: `docs/02-design/assets/client-app-tray-preview.png` 是 2026-10-15 确认的历史浮层样图；原生菜单替代其自定义外观，页面仍沿用现有简约样式。
 - Brand source: 用户于 2026-10-15 指定项目 `assets/logo/logo.png` 作为软件图标，可加工适配 Windows / macOS；应用内及托盘保留该原始标识，桌面圆角底座母版为 `neutrino-proxy-client-app/src-tauri/icons/app-icon.png`。当前底座处理为实现选型，未另行声称用户已确认生成图。
 - 桌面工具的布局和视觉适配见 `docs/02-design/client-app-ui.md`；保留白底、深墨色文字、克制的主操作与清晰层级，不复制 Airtable 品牌标识或营销页面。
@@ -28,6 +28,7 @@
 
 - 发版规则（用户于 2026-10-15 明确授权）：统一由 `v*` tag 触发服务端、命令行客户端和桌面 App 打包；全部必需产物验证通过后自动公开为正式 GitHub Release，不保留人工发布确认步骤。App 不配置开发者签名证书或公证；macOS 可使用无需证书的 ad-hoc 签名。发版流程本身不授予自动提交、推送或创建 tag 的权限；用户已另行授权提交、推送并正式发布 `v2.0.3` 和 `v2.0.4`，后续版本仍按明确指令执行。
 - 2026-10-16 用户授权将当前修订正式发布并跳过测试，本次按补丁版本 `v2.0.5` 执行。仅本次发布使用 `workflow_dispatch` 的 `skip_tests=true`；默认发布仍执行测试，构建、附件齐备与哈希校验保持必需。
+- 2026-10-16 用户另行授权提交、推送精简原生托盘和 `cargo run` 统一启动改动，正式发布下一补丁版本 `v2.0.6` 并跳过测试。沿用按次 `skip_tests=true`，不改变后续发布默认策略。
 
 - 新增正式文档统一位于 `docs/`，同步维护 `docs/README.md`；注明状态、更新时间和关联文档。
 - 需求事实、设计建议和待验证事项分别标明；性能目标不得写成实测结果。

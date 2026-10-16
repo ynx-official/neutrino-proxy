@@ -139,6 +139,10 @@ Solon 2.7 的外部配置路径在含空格目录下存在既有读取差异，J
 - 工作流中的 Python 回归、桌面 Vue / Rust 测试、浏览器流程和 Java 运行冒烟均显示 `skipped`；Maven 使用 `-DskipTests=true`。manifest 确认 `tests_skipped=true`，公开发布说明也明确记录本次跳过测试。
 - 未执行安装、原生菜单交互、真实服务器连接、长期资源占用或 macOS 实机功能验收；构建与分发完成不代表这些测试通过。未改变后续正常发布的默认测试策略。
 
+### v2.0.6 发布准备（2026-10-16）
+
+用户明确授权将精简原生托盘、菜单图标和 `cargo run` 统一启动改动提交推送并正式发布，按下一补丁版本 `v2.0.6` 执行。与 v2.0.5 相同，本次使用 `[skip ci]` 发布提交并通过 `workflow_dispatch` 指定 `publish=true`、`skip_tests=true`，跳过测试和运行冒烟，保留构建、静态检查、完整附件与哈希验证。正式公开和附件核验结果待本次工作流完成后更新；不覆盖已有版本或改变后续默认测试策略。
+
 ## 官方依据
 
 - [GitHub Actions 工作流与 tag 过滤](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)

@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod config_import;
+#[cfg(dev)]
+mod dev_frontend;
 mod storage;
 mod tray;
 use neutrino_client_core::{
@@ -210,6 +212,21 @@ fn show_main(app: &tauri::AppHandle, route: Option<&str>) -> Result<(), String> 
     Ok(())
 }
 fn main() {
+    let context = tauri::generate_context!();
+    #[cfg(dev)]
+    let frontend = match context.config().build.dev_url.as_ref() {
+        Some(url) => dev_frontend::ensure(
+            url,
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap(),
+        ),
+        None => Ok(None),
+    }
+    .unwrap_or_else(|error| {
+        eprintln!("{error}");
+        std::process::exit(1);
+    });
     // The UI is transient; background networking shares a small fixed worker pool.
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -219,7 +236,7 @@ fn main() {
         .build()
         .expect("无法创建客户端异步运行时");
     tauri::async_runtime::set(runtime.handle().clone());
-    tauri::Builder::default()
+    let app = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             show_window(app)
@@ -268,18 +285,21 @@ fn main() {
             apply_import,
             export_logs
         ])
-        .build(tauri::generate_context!())
-        .expect("无法启动 Neutrino Proxy")
-        .run(|app, event| {
-            if let tauri::RunEvent::ExitRequested {
-                code: None, api, ..
-            } = event
-            {
-                if !app.state::<AppState>().quitting.load(Ordering::SeqCst) {
-                    api.prevent_exit();
-                }
+        .build(context)
+        .expect("无法启动 Neutrino Proxy");
+    let exit_code = app.run_return(|app, event| {
+        if let tauri::RunEvent::ExitRequested {
+            code: None, api, ..
+        } = event
+        {
+            if !app.state::<AppState>().quitting.load(Ordering::SeqCst) {
+                api.prevent_exit();
             }
-        });
+        }
+    });
+    #[cfg(dev)]
+    drop(frontend);
+    std::process::exit(exit_code);
 }
 async fn connect_command(state: &AppState) -> Result<(), String> {
     if matches!(

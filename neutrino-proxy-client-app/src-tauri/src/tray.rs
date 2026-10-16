@@ -1,13 +1,14 @@
 use crate::{connect_command, show_main, AppState};
 use neutrino_client_core::{config::validate, Snapshot};
 use serde::Serialize;
+use std::collections::HashMap;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Mutex,
 };
 use tauri::{
     image::Image,
-    menu::{Menu, MenuItem, PredefinedMenuItem},
+    menu::{IconMenuItem, Menu, MenuItem, PredefinedMenuItem},
     tray::TrayIconBuilder,
     Manager,
 };
@@ -26,6 +27,39 @@ impl NativeTray {
 struct TrayImages {
     connected: Image<'static>,
     idle: Image<'static>,
+    menu: HashMap<&'static str, Image<'static>>,
+}
+
+fn menu_images() -> tauri::Result<HashMap<&'static str, Image<'static>>> {
+    [
+        (
+            "connected",
+            include_bytes!("../icons/menu/connected.png").as_slice(),
+        ),
+        ("idle", include_bytes!("../icons/menu/idle.png").as_slice()),
+        (
+            "pending",
+            include_bytes!("../icons/menu/pending.png").as_slice(),
+        ),
+        (
+            "error",
+            include_bytes!("../icons/menu/error.png").as_slice(),
+        ),
+        ("open", include_bytes!("../icons/menu/open.png").as_slice()),
+        ("logs", include_bytes!("../icons/menu/logs.png").as_slice()),
+        (
+            "connect",
+            include_bytes!("../icons/menu/connect.png").as_slice(),
+        ),
+        (
+            "disconnect",
+            include_bytes!("../icons/menu/disconnect.png").as_slice(),
+        ),
+        ("quit", include_bytes!("../icons/menu/quit.png").as_slice()),
+    ]
+    .into_iter()
+    .map(|(name, bytes)| Ok((name, Image::from_bytes(bytes)?)))
+    .collect()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -91,6 +125,7 @@ fn validate_action(snapshot: &Snapshot, action: &str) -> Result<(), String> {
 async fn execute_action(app: &tauri::AppHandle, action: &str) -> Result<(), String> {
     let state = app.state::<AppState>();
     match action {
+        "status" => show_main(app, Some("/"))?,
         "open" => show_main(app, None)?,
         "logs" => show_main(app, Some("/logs"))?,
         "connect" => {
@@ -119,7 +154,7 @@ async fn execute_action(app: &tauri::AppHandle, action: &str) -> Result<(), Stri
 
 fn menu_action(id: &str) -> Option<&str> {
     match id.strip_prefix("tray-")? {
-        action @ ("open" | "logs" | "connect" | "disconnect" | "quit") => Some(action),
+        action @ ("status" | "open" | "logs" | "connect" | "disconnect" | "quit") => Some(action),
         _ => None,
     }
 }
@@ -143,8 +178,15 @@ fn dispatch_action(app: &tauri::AppHandle, id: &str) {
 }
 
 fn native_menu(app: &tauri::AppHandle, view: &TraySnapshot) -> tauri::Result<Menu<tauri::Wry>> {
-    let title = MenuItem::new(app, "Neutrino Proxy", false, None::<&str>)?;
-    let status = MenuItem::new(app, format!("状态：{}", view.label), false, None::<&str>)?;
+    let images = app.state::<TrayImages>();
+    let status = IconMenuItem::with_id(
+        app,
+        "tray-status",
+        view.label,
+        true,
+        Some(images.menu[view.tone].clone()),
+        None::<&str>,
+    )?;
     let endpoint = MenuItem::new(
         app,
         if view.endpoint.is_empty() {
@@ -155,27 +197,54 @@ fn native_menu(app: &tauri::AppHandle, view: &TraySnapshot) -> tauri::Result<Men
         false,
         None::<&str>,
     )?;
-    let open = MenuItem::with_id(app, "tray-open", "打开主窗口", true, None::<&str>)?;
-    let logs = MenuItem::with_id(app, "tray-logs", "查看日志", true, None::<&str>)?;
+    let open = IconMenuItem::with_id(
+        app,
+        "tray-open",
+        "打开主窗口",
+        true,
+        Some(images.menu["open"].clone()),
+        None::<&str>,
+    )?;
+    let logs = IconMenuItem::with_id(
+        app,
+        "tray-logs",
+        "查看日志",
+        true,
+        Some(images.menu["logs"].clone()),
+        None::<&str>,
+    )?;
     // Keep the intent in the ID: an old "connect" click must never become "disconnect".
-    let action = MenuItem::with_id(
+    let action = IconMenuItem::with_id(
         app,
         format!("tray-{}", view.action),
         view.action_label,
         !view.disabled,
+        Some(
+            images.menu[if view.action == "connect" {
+                "connect"
+            } else {
+                "disconnect"
+            }]
+            .clone(),
+        ),
         None::<&str>,
     )?;
-    let quit = MenuItem::with_id(app, "tray-quit", "退出应用", true, None::<&str>)?;
+    let quit = IconMenuItem::with_id(
+        app,
+        "tray-quit",
+        "退出应用",
+        true,
+        Some(images.menu["quit"].clone()),
+        None::<&str>,
+    )?;
     Menu::with_items(
         app,
         &[
-            &title,
             &status,
             &endpoint,
             &PredefinedMenuItem::separator(app)?,
             &open,
             &logs,
-            &PredefinedMenuItem::separator(app)?,
             &action,
             &PredefinedMenuItem::separator(app)?,
             &quit,
@@ -210,25 +279,27 @@ fn badged_icon(base: &Image<'_>, connected: bool) -> Image<'static> {
 pub fn install(app: &tauri::App) -> tauri::Result<()> {
     let snapshot = app.state::<AppState>().engine.snapshot();
     let presentation = TraySnapshot::from(&snapshot);
-    let menu = native_menu(app.handle(), &presentation)?;
     // A compact transparent mark stays readable in the menu bar and notification area.
     let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))?;
     let images = TrayImages {
         connected: badged_icon(&icon, true),
         idle: badged_icon(&icon, false),
+        menu: menu_images()?,
     };
+    let initial_icon = images.idle.clone();
+    app.manage(images);
+    let menu = native_menu(app.handle(), &presentation)?;
     app.manage(NativeTray {
         presentation: Mutex::new(presentation.clone()),
         busy: AtomicBool::new(false),
     });
     TrayIconBuilder::with_id("client-tray")
-        .icon(images.idle.clone())
+        .icon(initial_icon)
         .tooltip(format!("Neutrino Proxy · {}", presentation.label))
         .menu(&menu)
         .show_menu_on_left_click(true)
         .on_menu_event(|app, event| dispatch_action(app, event.id.as_ref()))
         .build(app)?;
-    app.manage(images);
     Ok(())
 }
 
@@ -270,6 +341,91 @@ pub fn update(app: &tauri::AppHandle, snapshot: &Snapshot) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn windows_native_menu_exposes_the_approved_rows_and_exclusive_actions() {
+        use std::sync::Arc;
+        use tauri::menu::MenuItemKind;
+        let mut context = tauri::generate_context!();
+        context.config_mut().app.windows.clear();
+        context.config_mut().identifier = "fun.neutrino.proxy.native-menu-test".into();
+        let result = Arc::new(Mutex::new(None));
+        let output = result.clone();
+        let app = tauri::Builder::default()
+            .any_thread()
+            .setup(move |app| {
+                // Create real OS menu handles without opening windows or loading user data.
+                let inspect = || -> tauri::Result<Vec<_>> {
+                    let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))?;
+                    app.manage(TrayImages {
+                        connected: icon.clone(),
+                        idle: icon,
+                        menu: menu_images()?,
+                    });
+                    ["idle", "connected", "stopping"]
+                        .into_iter()
+                        .map(|state| {
+                            let mut snapshot = Snapshot {
+                                state: state.into(),
+                                ..Snapshot::default()
+                            };
+                            snapshot.config.server = "edge.example.com".into();
+                            native_menu(app.handle(), &TraySnapshot::from(&snapshot))?
+                                .items()?
+                                .into_iter()
+                                .map(|item| match item {
+                                    MenuItemKind::Icon(item) => Ok((
+                                        "icon",
+                                        item.id().as_ref().to_owned(),
+                                        item.text()?,
+                                        item.is_enabled()?,
+                                    )),
+                                    MenuItemKind::MenuItem(item) => Ok((
+                                        "text",
+                                        item.id().as_ref().to_owned(),
+                                        item.text()?,
+                                        item.is_enabled()?,
+                                    )),
+                                    MenuItemKind::Predefined(_) => {
+                                        Ok(("separator", String::new(), String::new(), false))
+                                    }
+                                    _ => unreachable!("this menu has no submenus or checkboxes"),
+                                })
+                                .collect::<tauri::Result<Vec<_>>>()
+                        })
+                        .collect()
+                };
+                *output.lock().unwrap() = Some(inspect().map_err(|e| e.to_string()));
+                app.handle().exit(0);
+                Ok(())
+            })
+            .build(context)
+            .unwrap();
+        assert_eq!(app.run_return(|_, _| {}), 0);
+        let menus = result.lock().unwrap().take().unwrap().unwrap();
+        for (index, rows) in menus.iter().enumerate() {
+            assert_eq!(rows.len(), 8);
+            assert_eq!(rows[0].0, "icon");
+            assert_eq!(rows[0].1, "tray-status");
+            assert_eq!(rows[0].2, ["未连接", "已连接", "正在断开"][index]);
+            assert!(rows[0].3);
+            assert_eq!(rows[1].0, "text");
+            assert_eq!(rows[1].2, "edge.example.com:9002");
+            assert!(!rows[1].3);
+            assert_eq!(rows[2].0, "separator");
+            assert_eq!(rows[6].0, "separator");
+            for (row, id) in [(3, "tray-open"), (4, "tray-logs"), (7, "tray-quit")] {
+                assert_eq!((rows[row].0, rows[row].1.as_str()), ("icon", id));
+                assert!(rows[row].3);
+            }
+            assert_eq!(rows[5].0, "icon");
+            assert_eq!(
+                rows[5].1,
+                ["tray-connect", "tray-disconnect", "tray-none"][index]
+            );
+            assert_eq!(rows[5].3, index != 2);
+        }
+    }
     #[test]
     fn unrelated_snapshot_updates_do_not_invalidate_the_menu() {
         let snapshot = Snapshot::default();
@@ -277,6 +433,26 @@ mod tests {
         let mut after = snapshot.clone();
         after.revision += 1;
         assert_eq!(before, TraySnapshot::from(&after));
+    }
+    #[test]
+    fn every_native_menu_state_and_action_has_a_cached_small_icon() {
+        let images = menu_images().unwrap();
+        for name in [
+            "connected",
+            "idle",
+            "pending",
+            "error",
+            "open",
+            "logs",
+            "connect",
+            "disconnect",
+            "quit",
+        ] {
+            let image = &images[name];
+            assert_eq!((image.width(), image.height()), (16, 16));
+            assert!(image.rgba().chunks(4).any(|pixel| pixel[3] > 0));
+            assert!(image.rgba().chunks(4).any(|pixel| pixel[3] == 0));
+        }
     }
     #[test]
     fn connection_actions_are_exclusive_and_stale_intents_are_rejected() {
@@ -327,10 +503,10 @@ mod tests {
     }
     #[test]
     fn native_menu_only_dispatches_known_commands_and_preserves_intent() {
-        for action in ["open", "logs", "connect", "disconnect", "quit"] {
+        for action in ["status", "open", "logs", "connect", "disconnect", "quit"] {
             assert_eq!(menu_action(&format!("tray-{action}")), Some(action));
         }
-        for id in ["tray-none", "tray-status", "quit", "tray-arbitrary"] {
+        for id in ["tray-none", "tray-endpoint", "quit", "tray-arbitrary"] {
             assert_eq!(menu_action(id), None);
         }
         let connected = Snapshot {
@@ -345,7 +521,7 @@ mod tests {
             presentation: Mutex::new(TraySnapshot::from(&Snapshot::default())),
             busy: AtomicBool::new(false),
         };
-        assert_eq!(tray.claim_action("tray-status"), None);
+        assert_eq!(tray.claim_action("tray-endpoint"), None);
         assert_eq!(tray.claim_action("tray-logs"), Some("logs"));
         assert_eq!(tray.claim_action("tray-logs"), None);
         assert_eq!(tray.claim_action("tray-connect"), None);

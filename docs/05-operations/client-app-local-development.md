@@ -30,6 +30,14 @@ npm ci
 启动桌面开发窗口：
 
 ```powershell
+cargo run
+```
+
+此命令会先启动前端、等待就绪，再打开桌面程序；在 `src-tauri/` 目录运行也适用。已启动的本项目 Vite 服务会被复用，其他程序占用端口则报错，不结束该程序。退出应用或终止开发进程后，仅清理本次启动的前端；关闭主窗口保留托盘运行时，前端也保持运行。
+
+仍可使用 Tauri CLI 入口（支持其开发监听流程）：
+
+```powershell
 npm run desktop:dev
 ```
 
@@ -73,3 +81,5 @@ npm run tauri -- icon src-tauri/icons/app-icon.png --output target/release-icons
 ```
 
 发布流水线使用相同母版和命令；日常构建直接读取已保存的 `.ico`、`.icns` 和 `.png`。本轮未更改安装签名、发布授权或实际发布版本。
+
+原生菜单的小图标位于 `src-tauri/icons/menu/`，SVG 为可编辑源文件，PNG 为运行时内嵌的 16 × 16 RGBA 资源；修改时同步导出 PNG 并执行对应 Rust 资源校验。动作路径复用 `src/components/AppIcon.vue`，不新增运行时图标库。
