@@ -128,9 +128,16 @@ Solon 2.7 的外部配置路径在含空格目录下存在既有读取差异，J
 
 发布后再次通过 GitHub API 与下载的 `SHA256SUMS`、`release-manifest.json` 核验：12 个附件准确齐备，所有远端 SHA-256 digest 一致；10 个分发文件的名称、大小和哈希与 manifest 一致；manifest、远端 tag、工作流与 Release 的源码均为上述提交。此结果证明构建与分发成功，不增加未执行的安装、原生交互或长期稳定性验收结论。
 
-### v2.0.5 发布准备（2026-10-16）
+### v2.0.5 正式发布（2026-10-16）
 
-用户明确授权将当前修订正式发布并跳过测试。本次包含原生托盘菜单与旧官方 YAML 的增量导入修复；当前远端最新版为 `v2.0.4`，新版本使用 `v2.0.5`，不覆盖已有版本或 tag。通过 `workflow_dispatch` 的 `skip_tests=true` 执行一次性跳过，发布后仍需核对全部附件及 manifest。本轮仅做工作流语法和改动检查，不重跑测试；此前开发阶段的测试结果保留为历史记录。
+用户明确授权将当前修订正式发布并跳过测试。本次包含原生托盘菜单与旧官方 YAML 的增量导入修复，版本从 `v2.0.4` 升至 `v2.0.5`，不覆盖已有版本或 tag。通过 `workflow_dispatch` 的 `skip_tests=true` 执行一次性跳过。本地仅做工作流语法和改动检查，不重跑测试；此前开发阶段的测试结果保留为历史记录。
+
+源码提交 `525b895a33812c811a2b3750b8730515e9553b9a` 与 `v2.0.5` 已原子推送到目标仓库，随后以 `publish=true`、`skip_tests=true` 启动[正式构建](https://github.com/ynx-official/neutrino-proxy/actions/runs/38853638154)。2026-10-16 13:22:33（Asia/Shanghai）已公开 [v2.0.5 正式 Release](https://github.com/ynx-official/neutrino-proxy/releases/tag/v2.0.5)，`draft=false`、`prerelease=false`，并设置为最新版本；全部 9 个构建与发布作业成功。
+
+- 12 个附件齐备：服务端 / 命令行客户端的 JAR、Linux x64 native、Windows x64 native 共 6 个分发 ZIP，Windows App 安装程序与便携 ZIP、Intel / Apple Silicon DMG 共 4 个桌面文件，另附 manifest 和校验和。
+- 通过 GitHub API、下载的 `release-manifest.json` 及 `SHA256SUMS` 再次核对：全部远端 SHA-256 digest 一致，10 个分发文件的名称、大小与哈希匹配 manifest，tag、运行与 manifest 的源码均为上述提交。另从 Actions 下载 Windows 两个分发文件并计算实际哈希，与公开 Release 校验和一致；安装程序文件版本及产品版本均为 `2.0.5`，便携 ZIP 包含 EXE 和许可证。
+- 工作流中的 Python 回归、桌面 Vue / Rust 测试、浏览器流程和 Java 运行冒烟均显示 `skipped`；Maven 使用 `-DskipTests=true`。manifest 确认 `tests_skipped=true`，公开发布说明也明确记录本次跳过测试。
+- 未执行安装、原生菜单交互、真实服务器连接、长期资源占用或 macOS 实机功能验收；构建与分发完成不代表这些测试通过。未改变后续正常发布的默认测试策略。
 
 ## 官方依据
 

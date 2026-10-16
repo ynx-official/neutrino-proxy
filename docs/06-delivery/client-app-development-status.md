@@ -5,9 +5,11 @@
 
 关联文档：[总体方案](../00-project/client-app-proposal.md)、[界面设计](../02-design/client-app-ui.md)、[架构设计](../03-architecture/client-app-architecture.md)、[完整验收计划](../04-quality/client-app-acceptance.md)、[本地运行](../05-operations/client-app-local-development.md)
 
-## 2026-10-16 v2.0.5 发布准备
+## 2026-10-16 v2.0.5 正式发布（当前）
 
-用户已明确授权正式发布当前修订并跳过测试。目标版本 `v2.0.5`，包含下述原生托盘和配置导入修复；本次不重跑开发测试，远端发布也显式跳过测试与运行冒烟，保留构建、静态检查、附件齐备、哈希和来源校验。实际发布状态以[统一发版记录](release-pipeline.md#v205-发布准备2026-10-16)及 GitHub Release 为准，构建未完成前不记为已发布。
+已按用户要求正式发布 [v2.0.5](https://github.com/ynx-official/neutrino-proxy/releases/tag/v2.0.5)，包含下述原生托盘和配置导入修复。源码为 `525b895a33812c811a2b3750b8730515e9553b9a`，本次不重跑开发测试，远端发布也显式跳过测试与运行冒烟，保留构建、静态检查、附件齐备、哈希和来源校验。
+
+2026-10-16 13:22:33（Asia/Shanghai）公开为最新正式版本，9 个作业成功、12 个附件齐备。Windows 安装版 / 便携版、Intel / Apple Silicon DMG 均生成，远端 digest 与下载的 manifest / 校验和一致，manifest 标明 `tests_skipped=true`。实际分发证据及未执行的运行验收边界见[统一发版记录](release-pipeline.md)。下方开发阶段的测试与本地二进制哈希保留为历史，不表示本次重新运行测试。
 
 ## 2026-10-16 托盘切换系统原生菜单（本地开发记录）
 
@@ -65,7 +67,7 @@
 
 本轮没有修改已安装客户端的配置或中断其连接。未执行原生文件选择 / 系统凭证库交互或 macOS 实机验证；解析行为由 Rust 回归覆盖，确认保存流程由浏览器流程覆盖。未提交、推送、创建 tag 或发布新版本。
 
-## 2026-10-15 v2.0.4 正式发布（当前）
+## 2026-10-15 v2.0.4 正式发布（历史记录）
 
 已按用户要求将源码提交 `be080e19987fca69aeb10fe1b0b084bf63073bf4` 正式发布为 [v2.0.4](https://github.com/ynx-official/neutrino-proxy/releases/tag/v2.0.4)，包含本页记录的简约界面、托盘浮层和项目 Logo。Windows 安装程序及便携 ZIP、Intel / Apple Silicon macOS DMG 均由 CI 成功生成并公开；验证与附件溯源以[统一发版记录](release-pipeline.md#v204-发布记录)为准。
 
