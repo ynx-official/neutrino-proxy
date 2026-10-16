@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import Icon from "./components/AppIcon.vue";
 import BrandMark from "./components/BrandMark.vue";
+import ImportFields from "./components/ImportFields.vue";
 import { initialModel } from "./services/state";
 import { call, subscribe, subscribeNavigation, inDesktop, confirmAction } from "./services/desktop";
 const model = reactive(initialModel()),
@@ -143,17 +144,7 @@ onUnmounted(() => {
         aria-labelledby="import-title"
       >
         <h2 id="import-title">确认导入配置</h2>
-        <p class="muted">
-          {{ importPreview.config.server || "服务器地址待补充" }}:{{
-            importPreview.config.port
-          }}
-          · {{ importPreview.config.ssl ? "SSL 已启用" : "SSL 未启用" }}
-        </p>
-        <p>
-          License：{{
-            importPreview.hasLicense ? "已读取，预览隐藏明文" : "尚未配置"
-          }}
-        </p>
+        <ImportFields :preview="importPreview" />
         <ul class="import-notes">
           <li v-for="note in importPreview.notes" :key="note">{{ note }}</li>
         </ul>

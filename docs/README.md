@@ -1,7 +1,8 @@
 # 项目文档索引
 
 状态：Review  
-最后更新：2026-10-15  
+最后更新：2026-10-16
+
 关联文档：[仓库说明](../README.md)、[协作约定](../AGENTS.md)
 
 ## 桌面客户端方案
@@ -12,7 +13,7 @@
 
 1. [总体方案与改动规模](00-project/client-app-proposal.md)：目标、范围、已确认决策、工作量和风险。
 2. [当前界面与交互](02-design/client-app-ui.md)：已确认的简约样图、顶部导航、三页交互、已确认的托盘浮层、项目 Logo 桌面适配及实际运行截图；历史色块方案已归档。
-3. [架构与兼容性设计](03-architecture/client-app-architecture.md)：Rust 内核、协议、配置迁移、后台运行及权限边界。
+3. [架构与兼容性设计](03-architecture/client-app-architecture.md)：Rust 内核、协议、配置迁移、后台运行及权限边界；含 2026-10-16 缺失 / 无效字段跳过、旧官方 client 分组兼容与实际读取字段预览规则。
 4. [验收与验证方案](04-quality/client-app-acceptance.md)：功能、兼容性、长期运行和平台测试。
 5. [分阶段实施计划](06-delivery/client-app-implementation-plan.md)：各阶段产物、依赖和完成条件。
 6. [样图生成记录](02-design/client-app-mockup-prompts.md)：内置 image_gen 的实际提示词、修订及静态目视检查边界。

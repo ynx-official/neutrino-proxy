@@ -1,7 +1,8 @@
 # 桌面客户端架构与兼容性设计
 
 状态：Review  
-最后更新：2026-10-15  
+最后更新：2026-10-16
+
 关联文档：[总体方案](../00-project/client-app-proposal.md)、[界面设计](../02-design/client-app-ui.md)、[验收方案](../04-quality/client-app-acceptance.md)、[实施计划](../06-delivery/client-app-implementation-plan.md)
 
 ## 1. 架构边界
@@ -138,6 +139,15 @@ stateDiagram-v2
 
 兼容承诺分为“原字段保留”“运行时参数需要映射”“新 App 偏好”三类。基础业务字段保持名称与含义；配置导入先生成候选结果，再由用户确认写入，失败不覆盖原配置。
 
+2026-10-16 范围修订（用户明确要求）：导入改为逐字段增量合并，缺少 `neutrino.proxy.tunnel` 或其他分组不再报错；缺失、空值、类型 / 范围无效和当前未支持的字段跳过，保留本机已保存的对应值与凭证。支持嵌套 YAML 和 Solon 点分键。非空有效字段生成脱敏候选预览，用户确认后保存，不自动连接；首次配置允许先保存部分字段，完整必填校验仍在手动保存 / 连接时执行。无可用字段只给出不可应用的提示，YAML 格式无效、文件不可读和超出大小限制仍返回错误。
+
+同日兼容补充（依据用户提供的配置键结构）：旧版官方连接字段位于 `neutrino.proxy.client`，新版位于 `neutrino.proxy.tunnel`，两者均需识别。逐字段优先使用明确存在的 tunnel 字段；该字段缺失时再读取 client 同名字段。旧版的地址、端口、SSL、License、证书及密码不依赖 tunnel 分组存在。用户提供的真实连接值不写入文档或测试，回归只保留结构并使用虚构数据。
+
+导入结果另附 `importedFields`，记录实际成功读取字段的标准化标识；完整 `config` 是合并后的候选值，不能视为文件原始内容。预览只展示 `importedFields` 中的字段，凭证仅显示已读取标记。未识别到字段时不展示本机地址或凭证状态，避免“本地回填值被当作已导入”的误导。
+
+此前“遇到自定义协议参数阻止整份导入”的策略由本次指令替代：这些参数显示为已跳过，其他可用字段继续导入；不声称旧客户端的自定义协议已被迁移或实际生效。导入普通字段成功不能作为协议完全兼容的证据。
+
+
 | 旧字段或来源 | 新客户端处理 | 验证重点 |
 |---|---|---|
 | tunnel.server-ip / server-port | 直接映射 | 域名、IP、端口边界；不自动改端口 |
@@ -148,7 +158,7 @@ stateDiagram-v2
 | reconnection.interval-seconds / unlimited | 保留业务含义 | 网络失败与认证失败分别验证 |
 | protocol.read-idle-time / write-idle-time / all-idle-time-seconds | 映射异步超时和心跳调度 | 0 值含义、单位、后台和睡眠恢复 |
 | protocol.max-frame-length | 保留最大帧约束 | 边界与长度前缀口径一致 |
-| protocol.length-field-* / initial-bytes-to-strip / length-adjustment | 默认值先完全兼容；非默认组合逐项验证 | 不支持的组合明确阻止导入启用，不默默改为默认 |
+| protocol.length-field-* / initial-bytes-to-strip / length-adjustment | 默认值先完全兼容；非默认组合逐项验证 | 不支持项在预览列为已跳过，不阻止其他字段导入，运行时保留原有参数 |
 | protocol.water-mark | 映射字节缓冲高低水位 | 单位解析、上下限和恢复读取 |
 | udp.puppet-port-range | 保留范围 | 端口冲突、耗尽、释放与跨平台绑定 |
 | tunnel.thread-count / udp.*-thread-count | 保存原参数，提出 Tokio 调度映射 | 不宣称线程数与 Netty 完全等价；映射属于兼容性审阅项 |

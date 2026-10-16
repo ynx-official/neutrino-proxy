@@ -273,3 +273,84 @@ test("SSL and advanced controls stay reachable in a small window", async ({
     page.getByText("请输入有效范围，例如 10000-10500"),
   ).toBeVisible();
 });
+
+test("partial imports can be confirmed before credentials are complete and do not connect", async ({ page }) => {
+  await bridge(page);
+  await page.addInitScript(() => {
+    const original = window.__NEUTRINO_TEST_BRIDGE__.invoke;
+    window.__importCommands = [];
+    window.__NEUTRINO_TEST_BRIDGE__.invoke = async (command, args) => {
+      window.__importCommands.push(command);
+      const snapshot = await original("get_snapshot");
+      const config = { ...snapshot.config, server: "imported.example.com", readIdleSeconds: 75 };
+      if (command === "import_config") return {
+        id: "partial-import", config, hasLicense: false, canApply: true,
+        importedFields: ["neutrino.proxy.tunnel.server-ip", "neutrino.proxy.protocol.read-idle-time"],
+        notes: ["可导入 2 项配置，缺失项保留当前值"],
+      };
+      if (command === "apply_import") return { ...snapshot, config, revision: snapshot.revision + 1 };
+      return original(command, args);
+    };
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "导入配置", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "确认导入配置" });
+  await expect(dialog.getByText("imported.example.com", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("75 秒", { exact: true })).toBeVisible();
+  await expect(dialog.getByText(/License/)).toHaveCount(0);
+  await expect(dialog.getByRole("button", { name: "导入并保存" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "导入并保存" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByLabel("服务器地址", { exact: true })).toHaveValue("imported.example.com");
+  await expect(page.getByLabel("License", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  expect(await page.evaluate(() => window.__importCommands)).toContain("apply_import");
+  expect(await page.evaluate(() => window.__importCommands)).not.toContain("connect");
+});
+
+test("an unmatched file never presents saved connection values as imported data", async ({ page }) => {
+  await bridge(page, true);
+  await page.addInitScript(() => {
+    const original = window.__NEUTRINO_TEST_BRIDGE__.invoke;
+    window.__NEUTRINO_TEST_BRIDGE__.invoke = async (command, args) => {
+      if (command !== "import_config") return original(command, args);
+      const snapshot = await original("get_snapshot");
+      return { id: "unmatched", config: snapshot.config, hasLicense: true, canApply: false,
+        importedFields: [], notes: ["未发现可导入的配置"] };
+    };
+  });
+  await page.goto("/#/settings");
+  await page.getByRole("button", { name: "导入配置", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "确认导入配置" });
+  await expect(dialog.getByText("未发现可导入的配置")).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "导入并保存" })).toBeDisabled();
+  await expect(dialog.getByText(/edge\.example\.com/)).toHaveCount(0);
+  await expect(dialog.getByText(/License/)).toHaveCount(0);
+});
+
+test("recognized legacy client fields preview correctly in a small window", async ({ page }) => {
+  await bridge(page);
+  await page.addInitScript(() => {
+    const original = window.__NEUTRINO_TEST_BRIDGE__.invoke;
+    window.__NEUTRINO_TEST_BRIDGE__.invoke = async (command, args) => {
+      if (command !== "import_config") return original(command, args);
+      const snapshot = await original("get_snapshot");
+      return { id: "official-legacy-client", canApply: true, hasLicense: true,
+        config: { ...snapshot.config, server: "official.example.com", port: 9000, ssl: false },
+        importedFields: ["server-ip", "server-port", "ssl-enable", "license-key", "jks-path", "key-store-password"].map((key) => `neutrino.proxy.tunnel.${key}`),
+        notes: ["可导入 6 项配置，缺失项保留当前值"] };
+    };
+  });
+  await page.setViewportSize({ width: 860, height: 620 });
+  await page.goto("/#/settings");
+  await page.getByRole("button", { name: "导入配置", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "确认导入配置" });
+  await expect(dialog.getByText("official.example.com", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("9000", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("未启用", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("License", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("已读取，隐藏明文", { exact: true })).toHaveCount(2);
+  await expect(dialog.getByRole("button", { name: "导入并保存" })).toBeEnabled();
+  await expect(dialog.getByRole("button", { name: "导入并保存" })).toBeInViewport();
+  await page.screenshot({ path: "test-results/import-legacy-client.png", fullPage: true });
+});

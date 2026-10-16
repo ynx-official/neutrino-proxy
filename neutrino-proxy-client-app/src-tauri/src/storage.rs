@@ -1,4 +1,4 @@
-use neutrino_client_core::config::{validate, ClientConfig, Secrets};
+use neutrino_client_core::config::{ClientConfig, Secrets};
 use serde::{Deserialize, Serialize};
 use std::{
     path::{Path, PathBuf},
@@ -127,6 +127,7 @@ pub struct ImportPreview {
     has_license: bool,
     notes: Vec<String>,
     can_apply: bool,
+    imported_fields: Vec<&'static str>,
 }
 pub fn preview_import(app: &tauri::AppHandle, path: &Path) -> Result<ImportPreview, String> {
     if std::fs::metadata(path)
@@ -137,76 +138,18 @@ pub fn preview_import(app: &tauri::AppHandle, path: &Path) -> Result<ImportPrevi
         return Err("配置文件不能超过 1 MiB".into());
     }
     let bytes = std::fs::read(path).map_err(|_| "无法读取配置文件".to_owned())?;
-    let yaml: serde_json::Value =
-        serde_yaml::from_slice(&bytes).map_err(|_| "YAML 配置格式无效".to_owned())?;
-    let t = &yaml["neutrino"]["proxy"]["tunnel"];
-    let p = &yaml["neutrino"]["proxy"]["protocol"];
-    let u = &yaml["neutrino"]["proxy"]["client"]["udp"];
-    if t.is_null() {
-        return Err("没有找到 neutrino.proxy.tunnel 配置".into());
-    }
-    let mut notes = vec![];
-    let mut config = ClientConfig::default();
-    let value = |key: &str| resolve(&t[key]);
-    config.server = value("server-ip").unwrap_or_default();
-    config.port = value("server-port")
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(9002);
-    config.ssl = value("ssl-enable")
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(true);
-    let secrets = Secrets {
-        license: value("license-key").unwrap_or_default(),
-        store_password: value("key-store-password").unwrap_or_default(),
+    let state = app.state::<crate::AppState>();
+    let (current, current_secrets) = {
+        let store = state.stored.lock().unwrap();
+        (store.config.clone(), store.secrets.clone())
     };
-    if let Some(id) = value("client-id").filter(|s| !s.is_empty()) {
-        config.client_id = id;
-    }
-    if let Some(cert) = value("jks-path").filter(|s| !s.starts_with("classpath:") && !s.is_empty())
-    {
-        config.certificate_path = if Path::new(&cert).is_absolute() {
-            PathBuf::from(cert)
-        } else {
-            path.parent().unwrap().join(cert)
-        }
-        .to_string_lossy()
-        .into_owned();
-    }
-    config.reconnect_seconds = t["reconnection"]["interval-seconds"].as_u64().unwrap_or(10);
-    config.unlimited = t["reconnection"]["unlimited"].as_bool().unwrap_or(false);
-    config.udp_port_range =
-        resolve(&u["puppet-port-range"]).unwrap_or_else(|| "10000-10500".into());
-    config.read_idle_seconds = p["read-idle-time"].as_u64().unwrap_or(120);
-    config.heartbeat_seconds = p["write-idle-time"].as_u64().unwrap_or(20);
-    let mut can_apply = true;
-    for (key, expected) in [
-        ("max-frame-length", 2097152),
-        ("length-field-offset", 0),
-        ("length-field-length", 4),
-        ("initial-bytes-to-strip", 0),
-        ("length-adjustment", 0),
-    ] {
-        if p[key].as_i64().is_some_and(|v| v != expected) {
-            notes.push(format!("当前阶段尚未支持自定义 {key}，请保留原客户端使用"));
-            can_apply = false;
-        }
-    }
-    if p["water-mark"].as_str().is_some_and(|v| !v.is_empty())
-        || p["all-idle-time-seconds"].as_i64().is_some_and(|v| v != 0)
-    {
-        notes.push("当前阶段尚未支持自定义水位线或全空闲超时，不能无损导入这组参数".into());
-        can_apply = false;
-    }
-    notes.extend(
-        validate(&config, !secrets.license.is_empty())
-            .values()
-            .cloned(),
-    );
-    if !notes.is_empty() {
-        can_apply = false;
-    }
-    notes.push("导入仅在确认后写入，原 YAML 和身份文件不会修改".into());
-    notes.push("Netty 线程与 Solon 日志参数不直接执行，Rust 使用独立调度与脱敏日志".into());
+    let crate::config_import::ParsedImport {
+        config,
+        secrets,
+        notes,
+        can_apply,
+        imported_fields,
+    } = crate::config_import::parse_import(&bytes, path, &current, &current_secrets)?;
     let id = uuid::Uuid::new_v4().to_string();
     let preview = ImportPreview {
         id: id.clone(),
@@ -214,6 +157,7 @@ pub fn preview_import(app: &tauri::AppHandle, path: &Path) -> Result<ImportPrevi
         has_license: !secrets.license.is_empty(),
         notes,
         can_apply,
+        imported_fields,
     };
     *app.state::<PendingImport>().0.lock().unwrap() = if can_apply {
         Some((id, config, secrets))
@@ -230,21 +174,5 @@ pub fn take_import(app: &tauri::AppHandle, id: &str) -> Result<(ClientConfig, Se
         Ok((config, secrets))
     } else {
         Err("导入预览已失效，请重新选择文件".into())
-    }
-}
-fn resolve(value: &serde_json::Value) -> Option<String> {
-    let raw = if let Some(s) = value.as_str() {
-        s.to_owned()
-    } else if value.is_boolean() || value.is_number() {
-        value.to_string()
-    } else {
-        return None;
-    };
-    if raw.starts_with("${") && raw.ends_with('}') {
-        let inside = &raw[2..raw.len() - 1];
-        let (name, fallback) = inside.split_once(':').unwrap_or((inside, ""));
-        std::env::var(name).ok().or_else(|| Some(fallback.into()))
-    } else {
-        Some(raw)
     }
 }

@@ -1,8 +1,45 @@
 # 桌面客户端开发进展与验证记录
 
 状态：Review  
-最后更新：2026-10-15  
+最后更新：2026-10-16
+
 关联文档：[总体方案](../00-project/client-app-proposal.md)、[界面设计](../02-design/client-app-ui.md)、[架构设计](../03-architecture/client-app-architecture.md)、[完整验收计划](../04-quality/client-app-acceptance.md)、[本地运行](../05-operations/client-app-local-development.md)
+
+## 2026-10-16 旧官方 client 分组兼容与预览修复（本地，未发布）
+
+用户提供的配置结构位于 `neutrino.proxy.client`，原增量导入仅识别 `neutrino.proxy.tunnel` 下的连接字段，导致官方旧格式无法导入。预览同时错误展示了合并候选中的本机已保存地址与 License 状态，让“没有读取到文件字段”看起来像已经读取成功。
+
+现已逐字段兼容两个分组，明确存在的 tunnel 字段优先，缺失时再读取 client 同名字段。导入结果附实际读取字段清单，确认弹窗只显示清单中的字段；License 和证书密码始终隐藏明文。无匹配字段时不再显示本机保留值。缺失项保留、确认后保存、不自动连接及完整连接校验的规则不变，详见[配置迁移](../03-architecture/client-app-architecture.md#4-配置兼容与迁移)。
+
+验证：
+
+- TDD：先新增两项 Rust 回归，均在原解析器中失败；随后新增空导入预览浏览器回归，稳定复现本机地址被误显示。修复后全部通过，未删除或弱化原有校验。
+- `cargo test --workspace`：26 项通过（导入 11、托盘 3、内核 12）；`cargo clippy --workspace --all-targets -- -D warnings` 与 `cargo fmt --all --check` 通过。
+- `npm test`：16 项通过；`npm run test:e2e`：11 个流程通过，覆盖部分导入确认、空导入不显示本机值、旧官方结构对应的六项字段预览、凭证脱敏以及 860 × 620 窗口内操作可达。
+- 已目视检查[导入确认截图](../04-quality/assets/client-app-import-legacy.png)，使用虚构配置和开发 IPC 替身；Rust 回归使用用户提供的键名与缩进，真实连接值未写入测试、文档或截图。
+- `npm run build`：通过；未安装或变更依赖。
+
+`npm run desktop:build`：Windows Release 构建通过，程序为 `neutrino-proxy-client-app/target/release/neutrino-proxy-client-app.exe`，12072960 字节，文件头为 `MZ`，SHA-256：`de8b6ad4475268e67f44d1962f6b075cad6015ccc2fc9e7b4c43a982a59cb511`。构建前复查未发现运行中的同名客户端，使用常规输出目录；没有执行退出或重启操作。生产前端资源不包含开发 IPC 测试桥接。
+
+未操作已安装客户端的配置、凭证或连接。本轮未执行原生文件选择 / 系统凭证库交互或 macOS 实机导入验证，自动化结果不替代这些平台检查。未提交、推送、创建 tag 或发布新版本。
+
+## 2026-10-16 配置增量导入修复（本地，未发布）
+
+用户明确要求缺少 `neutrino.proxy.tunnel` 等配置时跳过，只导入有用内容。原实现会立即返回“没有找到 neutrino.proxy.tunnel 配置”，且后续必填校验会阻止部分导入。本轮把解析从 Tauri 存储边界抽为可独立测试的模块，以当前已保存配置和凭证为基线：仅覆盖有效且受支持的字段，缺失、空值、错误类型 / 范围、缺失环境变量、不可用证书路径及未支持项跳过。兼容嵌套 YAML 与 Solon 点分键；已跳过的已知字段只提示名称，不输出凭证或值。
+
+首次使用可确认保存部分配置，之后到设置补齐必填信息；手动保存与连接的完整校验没有放宽，导入不自动连接。无可用字段只显示不可应用的预览提示。YAML 格式无效、文件不可读、超过 1 MiB 仍返回错误。详细规则及原“阻止整份导入”策略的替代原因见[配置迁移](../03-architecture/client-app-architecture.md#4-配置兼容与迁移)。未改变服务端、配置文件 schema、凭证存储方式、网络协议或已发布版本。
+
+验证：
+
+- 首先保留旧解析行为，新增 4 个回归用例；全部稳定失败，其中缺少 tunnel 场景复现原报错。实现增量解析后通过，再补充完整旧字段、点分键、环境默认值、错误类型、证书路径与格式错误覆盖。
+- `cargo test --workspace`：24 项通过，其中本轮导入回归 9 项、托盘 3 项、原内核 12 项；没有删除或弱化已有网络测试。
+- `cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all --check`：通过。
+- `npm test`：13 项通过；`npm run test:e2e`：9 个流程通过。新增首次缺少 License 的部分配置能确认保存、进入设置补齐、无全局错误且不调用连接的浏览器流程，使用开发 IPC 替身。
+- `npm run build`：通过。未安装或变更依赖。
+
+`npm run desktop:build`：Windows Release 构建通过，本地修正版为 `neutrino-proxy-client-app/target/release/neutrino-proxy-client-app.exe`；12068864 字节，SHA-256：`6a554ebe0913bdfd15d081128385e6c8275ee685b0402ff247a1ae45d29876e3`。检查二进制已移除原分组缺失报错并包含增量导入提示；这是本地开发构建，不是新发布的版本。
+
+本轮没有修改已安装客户端的配置或中断其连接。未执行原生文件选择 / 系统凭证库交互或 macOS 实机验证；解析行为由 Rust 回归覆盖，确认保存流程由浏览器流程覆盖。未提交、推送、创建 tag 或发布新版本。
 
 ## 2026-10-15 v2.0.4 正式发布（当前）
 

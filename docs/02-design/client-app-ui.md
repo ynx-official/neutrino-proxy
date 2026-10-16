@@ -1,7 +1,8 @@
 # 桌面客户端界面与交互
 
 状态：Review（本轮视觉样图已由用户确认）
-最后更新：2026-10-15  
+最后更新：2026-10-16
+
 关联文档：[总体方案](../00-project/client-app-proposal.md)、[架构设计](../03-architecture/client-app-architecture.md)、[验证记录](../06-delivery/client-app-development-status.md)、[已替代的色块方案](../99-archive/client-app-ui-color-variant.md)
 
 ## 已确认的视觉基线
@@ -50,6 +51,10 @@
 设置使用没有外框卡片的连续表单。地址与凭证、SSL 与证书、高级选项由细线分隔；高级设置默认折叠。SSL 关闭隐藏证书区，自定义 JKS 按原规则显示密码输入。
 
 已保存凭证的提示为“已保存 · 留空不修改”，空值提交仍保留原凭证。仅保存与保存并连接 / 重连保持明确区分；活动连接的仅保存按钮标明下次生效。保留字段错误、未保存标记、保存结果与离开确认。展开内容超出小窗口时，操作区保持可达。
+
+2026-10-16 导入确认改为增量合并，支持旧官方 `neutrino.proxy.client` 与新版 `neutrino.proxy.tunnel` 两种连接分组。缺失分组不弹错误，缺失字段沿用已保存内容；预览用逐行列表仅显示本次文件实际识别的字段，License / 证书密码隐藏明文。未读取的本机地址、端口或 License 状态不再出现在预览。首次缺少 License 等必填项也可先导入部分配置，确认保存后进入设置，不自动连接；没有可用字段时禁用应用，仅显示提示。详细规则见[配置迁移](../03-architecture/client-app-architecture.md#4-配置兼容与迁移)。
+
+[导入预览检查截图](../04-quality/assets/client-app-import-legacy.png)：860 × 620 浏览器窗口，虚构配置与开发 IPC 替身，原生导入验证边界见[验证记录](../06-delivery/client-app-development-status.md)。
 
 日志页保留搜索、级别、暂停与导出，以细线列表展示时间、级别、来源和消息；小窗口隐藏次要来源列。暂停只冻结视图，后台继续记录；空筛选可清除，底部显示数量与视图范围。
 
