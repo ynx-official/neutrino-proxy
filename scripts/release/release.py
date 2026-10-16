@@ -205,6 +205,7 @@ def assemble(output, version, commit, run_url):
     write_json(output / "release-manifest.json", {
         "version": version, "tag": "v" + version, "commit": commit, "workflow_run": run_url,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "tests_skipped": os.environ.get("SKIP_TESTS") == "true",
         "desktop_signing": "unsigned-no-notarization", "builds": builds, "assets": assets,
     })
     names = sorted(expected | {"release-manifest.json"})

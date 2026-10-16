@@ -12,7 +12,7 @@
 2026-10-15 已按用户新指令进入实现。当前已完成项及运行证据见[开发进展](06-delivery/client-app-development-status.md)，启动方式见[本地开发与运行](05-operations/client-app-local-development.md)。下列设计文档仍包含完整迁移目标，不能视为全部已实现。
 
 1. [总体方案与改动规模](00-project/client-app-proposal.md)：目标、范围、已确认决策、工作量和风险。
-2. [当前界面与交互](02-design/client-app-ui.md)：已确认的简约样图、顶部导航、三页交互、已确认的托盘浮层、项目 Logo 桌面适配及实际运行截图；历史色块方案已归档。
+2. [当前界面与交互](02-design/client-app-ui.md)：已确认的简约样图、顶部导航、三页交互、系统原生托盘菜单、项目 Logo 桌面适配及实际运行截图；历史色块与托盘浮层方案保留追溯。
 3. [架构与兼容性设计](03-architecture/client-app-architecture.md)：Rust 内核、协议、配置迁移、后台运行及权限边界；含 2026-10-16 缺失 / 无效字段跳过、旧官方 client 分组兼容与实际读取字段预览规则。
 4. [验收与验证方案](04-quality/client-app-acceptance.md)：功能、兼容性、长期运行和平台测试。
 5. [分阶段实施计划](06-delivery/client-app-implementation-plan.md)：各阶段产物、依赖和完成条件。
@@ -22,7 +22,7 @@
 
 ## 发版与分发
 
-- [统一发版构建流](06-delivery/release-pipeline.md)：`v*` tag 自动构建服务端、命令行客户端和桌面 App，产物齐备后自动公开正式 Release；无需配置 App 签名证书。含 `v2.0.3`、`v2.0.4` 的实际发布及校验记录。
+- [统一发版构建流](06-delivery/release-pipeline.md)：`v*` tag 自动构建服务端、命令行客户端和桌面 App，产物齐备后自动公开正式 Release；无需配置 App 签名证书。含 `v2.0.3`、`v2.0.4` 记录和 `v2.0.5` 按用户要求单次跳过测试的发布规则。
 
 ## 既有资料
 

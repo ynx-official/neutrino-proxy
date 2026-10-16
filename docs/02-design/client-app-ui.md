@@ -71,9 +71,9 @@
 - `icon.icns`：包含 1024 像素图层的 macOS 容器；已导出并检查格式，未在 macOS 运行验收。
 - `icon.png`：512 × 512，供桌面宿主使用；外部区域透明。
 - `tray.png`：直接从原 PNG 等比生成 64 × 64 透明图标，不使用底座，避免菜单栏和通知区域的主体过小。宿主预生成绿点 / 灰点两个状态图，不在每次状态更新时重绘。
-- 窗口顶部和托盘浮层共用 `BrandMark` 组件，读取原 Logo 的逐字节副本；移除临时 N 标识。保持既有导航和托盘布局。
+- 窗口顶部的 `BrandMark` 读取原 Logo 的逐字节副本；托盘原生图标读取透明小图并叠加连接状态点。历史 WebView 浮层曾复用 `BrandMark`，现已退役。
 
-实际浏览器验证截图使用开发 IPC 替身及虚构数据：[连接页品牌](../04-quality/assets/client-app-project-logo-connected.png)、[托盘品牌](../04-quality/assets/client-app-project-logo-tray.png)。图标生成提示词见[生成记录](client-app-mockup-prompts.md)，平台验证边界见[开发进展](../06-delivery/client-app-development-status.md)。
+实际浏览器验证截图使用开发 IPC 替身及虚构数据：[连接页品牌](../04-quality/assets/client-app-project-logo-connected.png)、[历史托盘浮层品牌](../04-quality/assets/client-app-project-logo-tray.png)。图标生成提示词见[生成记录](client-app-mockup-prompts.md)，平台验证边界见[开发进展](../06-delivery/client-app-development-status.md)。
 
 ## 实现与验收
 
@@ -89,23 +89,16 @@
 
 Windows 独立预览已实际打开并检查三页；[原生设置页](../04-quality/assets/client-app-minimal-windows.jpg)使用空配置。为保留用户当前连接，检查后关闭测试预览，日常使用的新版程序保留原应用标识与配置目录。
 
-## 托盘浮层（已确认）
+## 托盘菜单（系统原生）
 
-2026-10-15 用户对下图明确回复“托盘就按照这个改”。当前托盘按此基线实现为 288 × 342 的白色浮层，使用细线分组、小号线性图标和状态点。
-
-![用户确认的托盘设计](assets/client-app-tray-preview.png)
+2026-10-16 用户反馈右击卡顿并要求使用系统原生菜单。原浮层每次打开都新建 WebView、加载 Vue，关闭时销毁；现改用 Tauri 的 Rust 菜单接口，启动时创建菜单，单击和右击直接交给系统弹出。菜单随 Windows / macOS 的字体、主题、选中、禁用、定位和键盘行为显示；这是用户要求的原生交互，不再套用网页的颜色、圆角或尺寸。[Tauri 托盘菜单](https://v2.tauri.app/learn/system-tray/#add-a-menu)
 
 - 顶部显示应用名称、实时状态和服务器地址。活动连接使用实际会话地址；仅保存的新配置在下一次连接后才改变此处的活动地址。空配置显示“尚未配置服务器”。不显示 License 或日志正文。
 - “打开主窗口”恢复当前页面；“查看日志”打开日志页，沿用设置页未保存修改的确认流程。主窗口已销毁时按默认 860 × 620 重建。
 - 已连接只显示“断开连接”；未连接或失败显示“连接”；连接中显示“取消连接”，等待重连显示“停止重连”，断开中禁用重复操作。宿主再次检查当前状态，拒绝过时的相反动作。缺少有效配置时“连接”进入设置。
 - “退出应用”独立分组，断开并结束程序。托盘图标使用已连接绿点、其他状态灰点；悬停文字显示具体状态。
-- 单击或右击托盘图标打开浮层；Escape、失焦、再次点击图标及完成操作后销毁。浮层只在打开时创建 WebView，主窗口关闭后仍由同一个 Rust 引擎工作。WebView 辅助进程释放与长期内存须分别实测。
-- 使用屏幕工作区和缩放比例定位，兼容上方任务栏、负坐标显示器及高 DPI 的坐标计算；macOS 原生显示与交互仍待平台验证。
+- Escape、点击外部与操作完成后的收起交由系统菜单管理。托盘没有独立 HTML、Vue 入口、窗口或 IPC 命令；打开托盘不启动额外 WebView。主窗口关闭后仍由同一个 Rust 引擎工作。
+- 只在状态、操作或服务器摘要改变时替换缓存菜单；日志、连接时长及 revision 变化不会触发菜单重建。异步执行窗口和连接操作，拒绝重复激活；失败记录到日志并打开日志页反馈。
+- 系统负责多显示器、工作区和 DPI 定位。实际右键时延、Windows 菜单交互及 macOS 原生表现仍需分别验证；移除 WebView 冷启动路径不等于已完成性能测量。
 
-以下是实际 Vue 浮层截图，数据来自开发 IPC 测试替身：
-
-![已连接托盘界面](../04-quality/assets/client-app-tray-connected.png)
-
-![未连接托盘界面](../04-quality/assets/client-app-tray-idle.png)
-
-原生测试与构建证据见[验证记录](../06-delivery/client-app-development-status.md)，样图生成方式与完整提示词见[生成记录](client-app-mockup-prompts.md)。
+此前用户确认的[浮层样图](assets/client-app-tray-preview.png)与实际 Vue 浮层截图（[已连接](../04-quality/assets/client-app-tray-connected.png)、[未连接](../04-quality/assets/client-app-tray-idle.png)）保留用于追溯，已不代表当前原生菜单外观。原生验证与构建边界见[验证记录](../06-delivery/client-app-development-status.md)。

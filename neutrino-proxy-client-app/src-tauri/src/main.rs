@@ -221,14 +221,7 @@ fn main() {
     tauri::async_runtime::set(runtime.handle().clone());
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _| {
-            // Native UI tests can open the real popup without automating the OS taskbar.
-            // This entry point is absent from release binaries.
-            #[cfg(debug_assertions)]
-            if _args.iter().any(|arg| arg == "--preview-tray") {
-                tray::preview(app);
-                return;
-            }
+        .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             show_window(app)
         }))
         .setup(|app| {
@@ -249,10 +242,9 @@ fn main() {
             let mut changes = engine.subscribe();
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
-                let mut previous_connected = None;
                 loop {
                     let snapshot = changes.borrow_and_update().clone();
-                    tray::update(&handle, &snapshot, &mut previous_connected);
+                    tray::update(&handle, &snapshot);
                     if let Some(window) = handle.get_webview_window("main") {
                         let _ = window.emit_to("main", "client-state", snapshot);
                     }
@@ -264,10 +256,6 @@ fn main() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            tray::tray_snapshot,
-            tray::tray_ready,
-            tray::close_tray,
-            tray::tray_action,
             take_navigation,
             get_snapshot,
             connect,

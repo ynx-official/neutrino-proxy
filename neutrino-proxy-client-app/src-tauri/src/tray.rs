@@ -3,29 +3,34 @@ use neutrino_client_core::{config::validate, Snapshot};
 use serde::Serialize;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
-    Arc,
+    Mutex,
 };
 use tauri::{
     image::Image,
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
-    WindowEvent,
+    menu::{Menu, MenuItem, PredefinedMenuItem},
+    tray::TrayIconBuilder,
+    Manager,
 };
 
-const WIDTH: f64 = 288.0;
-const HEIGHT: f64 = 342.0;
-#[derive(Default)]
-struct PopupRequest(AtomicBool);
+struct NativeTray {
+    presentation: Mutex<TraySnapshot>,
+    busy: AtomicBool,
+}
+impl NativeTray {
+    fn claim_action<'a>(&self, id: &'a str) -> Option<&'a str> {
+        let action = menu_action(id)?;
+        (!self.busy.swap(true, Ordering::SeqCst)).then_some(action)
+    }
+}
 
 struct TrayImages {
     connected: Image<'static>,
     idle: Image<'static>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TraySnapshot {
-    revision: u64,
     label: &'static str,
     tone: &'static str,
     endpoint: String,
@@ -64,7 +69,6 @@ impl From<&Snapshot> for TraySnapshot {
             format!("{host}:{}", config.port)
         };
         Self {
-            revision: snapshot.revision,
             label,
             tone,
             endpoint,
@@ -73,38 +77,6 @@ impl From<&Snapshot> for TraySnapshot {
             disabled,
         }
     }
-}
-
-fn ensure_tray(window: &WebviewWindow) -> Result<(), String> {
-    if window.label() == "tray" {
-        Ok(())
-    } else {
-        Err("仅可从托盘执行此操作".into())
-    }
-}
-
-#[tauri::command]
-pub fn tray_snapshot(
-    window: WebviewWindow,
-    state: tauri::State<AppState>,
-) -> Result<TraySnapshot, String> {
-    ensure_tray(&window)?;
-    Ok(TraySnapshot::from(&state.engine.snapshot()))
-}
-
-#[tauri::command]
-pub fn tray_ready(window: WebviewWindow) -> Result<(), String> {
-    ensure_tray(&window)?;
-    window
-        .show()
-        .and_then(|_| window.set_focus())
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
-pub fn close_tray(window: WebviewWindow) -> Result<(), String> {
-    ensure_tray(&window)?;
-    window.destroy().map_err(|e| e.to_string())
 }
 
 fn validate_action(snapshot: &Snapshot, action: &str) -> Result<(), String> {
@@ -116,28 +88,22 @@ fn validate_action(snapshot: &Snapshot, action: &str) -> Result<(), String> {
     }
 }
 
-#[tauri::command]
-pub async fn tray_action(
-    app: tauri::AppHandle,
-    window: WebviewWindow,
-    state: tauri::State<'_, AppState>,
-    action: String,
-) -> Result<(), String> {
-    ensure_tray(&window)?;
-    match action.as_str() {
-        "open" => show_main(&app, None)?,
-        "logs" => show_main(&app, Some("/logs"))?,
+async fn execute_action(app: &tauri::AppHandle, action: &str) -> Result<(), String> {
+    let state = app.state::<AppState>();
+    match action {
+        "open" => show_main(app, None)?,
+        "logs" => show_main(app, Some("/logs"))?,
         "connect" => {
-            validate_action(&state.engine.snapshot(), &action)?;
             let snapshot = state.engine.snapshot();
+            validate_action(&snapshot, action)?;
             if validate(&snapshot.config, snapshot.has_license).is_empty() {
                 connect_command(&state).await?;
             } else {
-                show_main(&app, Some("/settings"))?;
+                show_main(app, Some("/settings"))?;
             }
         }
         "disconnect" => {
-            validate_action(&state.engine.snapshot(), &action)?;
+            validate_action(&state.engine.snapshot(), action)?;
             state.engine.disconnect().await;
         }
         "quit" => {
@@ -148,83 +114,73 @@ pub async fn tray_action(
         }
         _ => return Err("未知托盘操作".into()),
     }
-    // Opening main can already have dismissed the popup via focus loss.
-    let _ = window.destroy();
     Ok(())
 }
 
-// All coordinates here are physical pixels, including negative monitor origins.
-fn popup_position(
-    point: (f64, f64),
-    work: (f64, f64, f64, f64),
-    size: (f64, f64),
-    gap: f64,
-) -> (i32, i32) {
-    let (left, top, width, height) = work;
-    let (w, h) = size;
-    let x = (point.0 - w + 20.0).clamp(left + gap, (left + width - w - gap).max(left + gap));
-    let y = if point.1 - h - gap >= top {
-        point.1 - h - gap
-    } else {
-        point.1 + gap
+fn menu_action(id: &str) -> Option<&str> {
+    match id.strip_prefix("tray-")? {
+        action @ ("open" | "logs" | "connect" | "disconnect" | "quit") => Some(action),
+        _ => None,
+    }
+}
+
+fn dispatch_action(app: &tauri::AppHandle, id: &str) {
+    let Some(action) = app.state::<NativeTray>().claim_action(id) else {
+        return;
     };
-    let y = y.clamp(top + gap, (top + height - h - gap).max(top + gap));
-    (x.round() as i32, y.round() as i32)
+    let app = app.clone();
+    let action = action.to_owned();
+    // Window creation and network cleanup must stay outside the native menu callback.
+    tauri::async_runtime::spawn(async move {
+        if let Err(error) = execute_action(&app, &action).await {
+            app.state::<AppState>().engine.log("warn", "托盘", &error);
+            let _ = show_main(&app, Some("/logs"));
+        }
+        app.state::<NativeTray>()
+            .busy
+            .store(false, Ordering::SeqCst);
+    });
 }
 
-fn open_popup(app: &tauri::AppHandle, point: PhysicalPosition<f64>) -> tauri::Result<()> {
-    if let Some(window) = app.get_webview_window("tray") {
-        window.destroy()?;
-        return Ok(());
-    }
-    let monitor = app
-        .monitor_from_point(point.x, point.y)?
-        .or(app.primary_monitor()?);
-    let window = WebviewWindowBuilder::new(app, "tray", WebviewUrl::App("tray.html".into()))
-        .title("Neutrino Proxy · 托盘")
-        .inner_size(WIDTH, HEIGHT)
-        .resizable(false)
-        .maximizable(false)
-        .minimizable(false)
-        .decorations(false)
-        .shadow(true)
-        .always_on_top(true)
-        .skip_taskbar(true)
-        .visible(false)
-        .focused(false)
-        .build()?;
-    if let Some(monitor) = monitor {
-        let work = monitor.work_area();
-        let scale = monitor.scale_factor();
-        let (x, y) = popup_position(
-            (point.x, point.y),
-            (
-                work.position.x as f64,
-                work.position.y as f64,
-                work.size.width as f64,
-                work.size.height as f64,
-            ),
-            (WIDTH * scale, HEIGHT * scale),
-            8.0 * scale,
-        );
-        window.set_position(PhysicalPosition::new(x, y))?;
-    }
-    let focused = Arc::new(AtomicBool::new(false));
-    let popup = window.clone();
-    window.on_window_event(move |event| match event {
-        WindowEvent::Focused(true) => {
-            focused.store(true, Ordering::SeqCst);
-        }
-        WindowEvent::Focused(false) if focused.swap(false, Ordering::SeqCst) => {
-            // Keep native lifecycle work outside the window-event callback.
-            let popup = popup.clone();
-            tauri::async_runtime::spawn(async move {
-                let _ = popup.destroy();
-            });
-        }
-        _ => {}
-    });
-    Ok(())
+fn native_menu(app: &tauri::AppHandle, view: &TraySnapshot) -> tauri::Result<Menu<tauri::Wry>> {
+    let title = MenuItem::new(app, "Neutrino Proxy", false, None::<&str>)?;
+    let status = MenuItem::new(app, format!("状态：{}", view.label), false, None::<&str>)?;
+    let endpoint = MenuItem::new(
+        app,
+        if view.endpoint.is_empty() {
+            "尚未配置服务器"
+        } else {
+            &view.endpoint
+        },
+        false,
+        None::<&str>,
+    )?;
+    let open = MenuItem::with_id(app, "tray-open", "打开主窗口", true, None::<&str>)?;
+    let logs = MenuItem::with_id(app, "tray-logs", "查看日志", true, None::<&str>)?;
+    // Keep the intent in the ID: an old "connect" click must never become "disconnect".
+    let action = MenuItem::with_id(
+        app,
+        format!("tray-{}", view.action),
+        view.action_label,
+        !view.disabled,
+        None::<&str>,
+    )?;
+    let quit = MenuItem::with_id(app, "tray-quit", "退出应用", true, None::<&str>)?;
+    Menu::with_items(
+        app,
+        &[
+            &title,
+            &status,
+            &endpoint,
+            &PredefinedMenuItem::separator(app)?,
+            &open,
+            &logs,
+            &PredefinedMenuItem::separator(app)?,
+            &action,
+            &PredefinedMenuItem::separator(app)?,
+            &quit,
+        ],
+    )
 }
 
 fn badged_icon(base: &Image<'_>, connected: bool) -> Image<'static> {
@@ -252,76 +208,62 @@ fn badged_icon(base: &Image<'_>, connected: bool) -> Image<'static> {
 }
 
 pub fn install(app: &tauri::App) -> tauri::Result<()> {
-    app.manage(PopupRequest::default());
+    let snapshot = app.state::<AppState>().engine.snapshot();
+    let presentation = TraySnapshot::from(&snapshot);
+    let menu = native_menu(app.handle(), &presentation)?;
     // A compact transparent mark stays readable in the menu bar and notification area.
     let icon = Image::from_bytes(include_bytes!("../icons/tray.png"))?;
     let images = TrayImages {
         connected: badged_icon(&icon, true),
         idle: badged_icon(&icon, false),
     };
+    app.manage(NativeTray {
+        presentation: Mutex::new(presentation.clone()),
+        busy: AtomicBool::new(false),
+    });
     TrayIconBuilder::with_id("client-tray")
         .icon(images.idle.clone())
-        .tooltip("Neutrino Proxy · 未连接")
-        .show_menu_on_left_click(false)
-        .on_tray_icon_event(|tray, event| {
-            if let TrayIconEvent::Click {
-                position,
-                button: MouseButton::Left | MouseButton::Right,
-                button_state: MouseButtonState::Up,
-                ..
-            } = event
-            {
-                request_popup(tray.app_handle(), position);
-            }
-        })
+        .tooltip(format!("Neutrino Proxy · {}", presentation.label))
+        .menu(&menu)
+        .show_menu_on_left_click(true)
+        .on_menu_event(|app, event| dispatch_action(app, event.id.as_ref()))
         .build(app)?;
     app.manage(images);
     Ok(())
 }
 
-fn request_popup(app: &tauri::AppHandle, point: PhysicalPosition<f64>) {
-    if app.state::<PopupRequest>().0.swap(true, Ordering::SeqCst) {
+pub fn update(app: &tauri::AppHandle, snapshot: &Snapshot) {
+    let view = TraySnapshot::from(snapshot);
+    let state = app.state::<NativeTray>();
+    let mut previous = state.presentation.lock().unwrap();
+    // Durations, logs, traffic and revisions do not change the native menu.
+    if *previous == view {
         return;
     }
-    let app = app.clone();
-    // Tauri documents a WebView2 deadlock when builders run in sync event handlers.
-    // Serialize requests and build on the existing bounded blocking pool instead.
-    tauri::async_runtime::spawn_blocking(move || {
-        let result = open_popup(&app, point);
-        app.state::<PopupRequest>().0.store(false, Ordering::SeqCst);
-        if let Err(error) = result {
-            app.state::<AppState>()
-                .engine
-                .log("error", "托盘", &format!("无法打开托盘：{error}"));
-        }
-    });
-}
-
-#[cfg(debug_assertions)]
-pub fn preview(app: &tauri::AppHandle) {
-    if let Ok(point) = app.cursor_position() {
-        request_popup(app, point);
-    }
-}
-
-pub fn update(app: &tauri::AppHandle, snapshot: &Snapshot, previous_connected: &mut Option<bool>) {
-    let view = TraySnapshot::from(snapshot);
-    let connected = snapshot.state == "connected";
+    let connected_changed = (previous.label == "已连接") != (view.label == "已连接");
+    let status_changed = previous.label != view.label;
+    // Cache failed attempts too, so an OS error cannot create a log/update feedback loop.
+    *previous = view.clone();
     if let Some(tray) = app.tray_by_id("client-tray") {
-        let _ = tray.set_tooltip(Some(format!("Neutrino Proxy · {}", view.label)));
-        if *previous_connected != Some(connected) {
+        if status_changed {
+            let _ = tray.set_tooltip(Some(format!("Neutrino Proxy · {}", view.label)));
+        }
+        if connected_changed {
             let images = app.state::<TrayImages>();
-            let icon = if connected {
+            let icon = if snapshot.state == "connected" {
                 &images.connected
             } else {
                 &images.idle
             };
             let _ = tray.set_icon(Some(icon.clone()));
-            *previous_connected = Some(connected);
         }
-    }
-    if let Some(window) = app.get_webview_window("tray") {
-        let _ = window.emit_to("tray", "tray-state", view);
+        if let Err(error) = native_menu(app, &view).and_then(|menu| tray.set_menu(Some(menu))) {
+            app.state::<AppState>().engine.log(
+                "error",
+                "托盘",
+                &format!("无法更新系统菜单：{error}"),
+            );
+        }
     }
 }
 
@@ -329,15 +271,24 @@ pub fn update(app: &tauri::AppHandle, snapshot: &Snapshot, previous_connected: &
 mod tests {
     use super::*;
     #[test]
+    fn unrelated_snapshot_updates_do_not_invalidate_the_menu() {
+        let snapshot = Snapshot::default();
+        let before = TraySnapshot::from(&snapshot);
+        let mut after = snapshot.clone();
+        after.revision += 1;
+        assert_eq!(before, TraySnapshot::from(&after));
+    }
+    #[test]
     fn connection_actions_are_exclusive_and_stale_intents_are_rejected() {
-        for (state, expected, disabled) in [
-            ("idle", "connect", false),
-            ("error", "connect", false),
-            ("connected", "disconnect", false),
-            ("connecting", "disconnect", false),
-            ("authenticating", "disconnect", false),
-            ("reconnecting", "disconnect", false),
-            ("stopping", "none", true),
+        for (state, expected, label, disabled) in [
+            ("idle", "connect", "连接", false),
+            ("error", "connect", "连接", false),
+            ("connected", "disconnect", "断开连接", false),
+            ("validating", "disconnect", "取消连接", false),
+            ("connecting", "disconnect", "取消连接", false),
+            ("authenticating", "disconnect", "取消连接", false),
+            ("reconnecting", "disconnect", "停止重连", false),
+            ("stopping", "none", "正在断开", true),
         ] {
             let snapshot = Snapshot {
                 state: state.into(),
@@ -345,6 +296,7 @@ mod tests {
             };
             let view = TraySnapshot::from(&snapshot);
             assert_eq!((view.action, view.disabled), (expected, disabled));
+            assert_eq!(view.action_label, label);
             assert_eq!(validate_action(&snapshot, expected).is_ok(), !disabled);
             let opposite = if expected == "connect" {
                 "disconnect"
@@ -374,27 +326,30 @@ mod tests {
         );
     }
     #[test]
-    fn popup_stays_in_work_area_on_bottom_top_and_negative_origin_monitors() {
-        let (x, y) = popup_position(
-            (1910.0, 1060.0),
-            (0.0, 0.0, 1920.0, 1040.0),
-            (288.0, 342.0),
-            8.0,
-        );
-        assert!(x >= 8 && x + 288 <= 1912 && y >= 8 && y + 342 <= 1032);
-        let (_, y) = popup_position(
-            (1800.0, 12.0),
-            (0.0, 24.0, 1920.0, 1056.0),
-            (288.0, 342.0),
-            8.0,
-        );
-        assert!(y >= 24);
-        let (x, y) = popup_position(
-            (-5.0, 1000.0),
-            (-1920.0, 0.0, 1920.0, 1040.0),
-            (576.0, 684.0),
-            16.0,
-        );
-        assert!(x >= -1904 && x + 576 <= -16 && y >= 16 && y + 684 <= 1024);
+    fn native_menu_only_dispatches_known_commands_and_preserves_intent() {
+        for action in ["open", "logs", "connect", "disconnect", "quit"] {
+            assert_eq!(menu_action(&format!("tray-{action}")), Some(action));
+        }
+        for id in ["tray-none", "tray-status", "quit", "tray-arbitrary"] {
+            assert_eq!(menu_action(id), None);
+        }
+        let connected = Snapshot {
+            state: "connected".into(),
+            ..Snapshot::default()
+        };
+        assert!(validate_action(&connected, menu_action("tray-connect").unwrap()).is_err());
+    }
+    #[test]
+    fn native_actions_reject_repeat_clicks_until_the_previous_action_finishes() {
+        let tray = NativeTray {
+            presentation: Mutex::new(TraySnapshot::from(&Snapshot::default())),
+            busy: AtomicBool::new(false),
+        };
+        assert_eq!(tray.claim_action("tray-status"), None);
+        assert_eq!(tray.claim_action("tray-logs"), Some("logs"));
+        assert_eq!(tray.claim_action("tray-logs"), None);
+        assert_eq!(tray.claim_action("tray-connect"), None);
+        tray.busy.store(false, Ordering::SeqCst);
+        assert_eq!(tray.claim_action("tray-connect"), Some("connect"));
     }
 }

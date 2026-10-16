@@ -2,7 +2,7 @@
 
 状态：Approved（发布规则已确认；跨平台运行结果以实际 CI 为准）
 
-最后更新：2026-10-15
+最后更新：2026-10-16
 
 关联文档：[协作约定](../../AGENTS.md)、[桌面客户端本地运行](../05-operations/client-app-local-development.md)、[开发进展](client-app-development-status.md)
 
@@ -61,6 +61,10 @@ git push origin v2.1.0
 这是操作说明，不代表 Codex 已执行提交、tag 或推送。工作流使用仓库自带 `GITHUB_TOKEN`，不需要额外 PAT、签名证书或发布 Environment 审批；仓库组织策略仍须允许该工作流写入 Releases。
 
 Actions 页面也可手动运行 `Release`：填写已存在的 tag，默认 `publish=false`，只构建并保存完整 artifact；明确勾选 `publish` 后才公开。手动运行的工作流本身必须已存在于默认分支。
+
+2026-10-16 增加按次运行的 `skip_tests` 布尔输入，默认 `false`。用户明确要求跳过测试时，可用 `workflow_dispatch` 同时指定 `publish=true`、`skip_tests=true`；只跳过该次的 Python 打包回归、Vue / Rust 测试、浏览器流程及 Java 运行冒烟，Maven 传入 `-DskipTests=true`。构建、Rust 格式和 Clippy、准确产物清单、哈希及 tag 溯源校验仍执行。普通 tag 发布与未开启此选项的手动发布保持原有测试。manifest 的 `tests_skipped` 记录实际选择，不把本次未运行的检查记为通过。
+
+为防止本次分支 / tag 推送另行启动带测试的工作流，发布提交使用 GitHub 的 `[skip ci]` 标记，再显式手动触发构建；此标记不影响 `workflow_dispatch`。[GitHub 跳过工作流规则](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/skip-workflow-runs) 所有 `gh` 发布命令明确指定 `--repo ynx-official/neutrino-proxy`，避免 fork 仓库的默认仓库推断指向上游。
 
 构建失败可重新运行失败作业；上传失败时保持内部草稿不公开。相同提交、由本工具创建的草稿允许重试并替换尚未公开的构建附件；其他来源的草稿拒绝修改。已公开 Release 不覆盖、不删除，修正版使用新 tag。相同 tag 的运行串行执行，不中断正在发布的任务。
 
@@ -123,6 +127,10 @@ Solon 2.7 的外部配置路径在含空格目录下存在既有读取差异，J
 2026-10-15 15:36:54（Asia/Shanghai）已自动公开 [v2.0.4 正式 Release](https://github.com/ynx-official/neutrino-proxy/releases/tag/v2.0.4)，`draft=false`、`prerelease=false`，并设置为最新版本；本次 Actions 的全部 9 个作业成功。JAR、Linux / Windows native 分发包均通过构建与启动检查；Windows 安装程序和便携 ZIP、Intel / Apple Silicon DMG 全部生成。App 按已确认规则不使用开发者证书或公证。
 
 发布后再次通过 GitHub API 与下载的 `SHA256SUMS`、`release-manifest.json` 核验：12 个附件准确齐备，所有远端 SHA-256 digest 一致；10 个分发文件的名称、大小和哈希与 manifest 一致；manifest、远端 tag、工作流与 Release 的源码均为上述提交。此结果证明构建与分发成功，不增加未执行的安装、原生交互或长期稳定性验收结论。
+
+### v2.0.5 发布准备（2026-10-16）
+
+用户明确授权将当前修订正式发布并跳过测试。本次包含原生托盘菜单与旧官方 YAML 的增量导入修复；当前远端最新版为 `v2.0.4`，新版本使用 `v2.0.5`，不覆盖已有版本或 tag。通过 `workflow_dispatch` 的 `skip_tests=true` 执行一次性跳过，发布后仍需核对全部附件及 manifest。本轮仅做工作流语法和改动检查，不重跑测试；此前开发阶段的测试结果保留为历史记录。
 
 ## 官方依据
 

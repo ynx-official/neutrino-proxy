@@ -5,6 +5,30 @@
 
 关联文档：[总体方案](../00-project/client-app-proposal.md)、[界面设计](../02-design/client-app-ui.md)、[架构设计](../03-architecture/client-app-architecture.md)、[完整验收计划](../04-quality/client-app-acceptance.md)、[本地运行](../05-operations/client-app-local-development.md)
 
+## 2026-10-16 v2.0.5 发布准备
+
+用户已明确授权正式发布当前修订并跳过测试。目标版本 `v2.0.5`，包含下述原生托盘和配置导入修复；本次不重跑开发测试，远端发布也显式跳过测试与运行冒烟，保留构建、静态检查、附件齐备、哈希和来源校验。实际发布状态以[统一发版记录](release-pipeline.md#v205-发布准备2026-10-16)及 GitHub Release 为准，构建未完成前不记为已发布。
+
+## 2026-10-16 托盘切换系统原生菜单（本地开发记录）
+
+用户反馈通知区域右击卡顿并要求改用系统原生菜单。代码检查确认原流程每次打开都创建新的 WebView 并加载 Vue，失焦后销毁，存在额外冷启动路径；本轮没有将该代码依据写成已测量的唯一性能瓶颈。
+
+已用 Tauri Rust 原生菜单替代自定义浮层：启动时创建并绑定，单击 / 右击由系统弹出，保留应用名、状态、服务器摘要、打开主窗口、日志、互斥连接动作及退出。菜单摘要缓存不含日志、连接时长或 revision，仅相关状态改变时更新；连接角标仍复用预生成图。窗口创建和网络操作在异步任务中执行，重复点击和过时的相反动作被拒绝。错误记录到日志并打开日志页反馈。
+
+已删除托盘 WebView、独立 HTML / Vue / 样式构建入口、事件 capability、四个托盘 IPC 命令和旧调试预览入口。原浮层专用的布局、DOM 事件与坐标测试随旧组件退役，状态 / 操作规则改由 Rust 回归验证，主窗口导航及未保存修改确认的浏览器测试保留。未更改网络协议、配置导入或凭证存储方式。
+
+验证：
+
+- TDD：菜单摘要在仅 revision 改变时仍失效的 Rust 回归先失败，移除非菜单数据后通过；构建资源回归先检出额外的 `tray.html` 入口而失败，移除托盘资源后通过。
+- `cargo test --workspace`：28 项通过（托盘 5、导入 11、内核 12），覆盖各状态互斥动作与文案、过时 ID、重复激活、活动服务器与摘要脱敏、无关更新不影响菜单。
+- `cargo clippy --workspace --all-targets -- -D warnings`、`cargo fmt --all --check`：通过。
+- `npm test`：13 项通过；`npm run test:e2e`：10 个主窗口流程通过，含托盘导航与未保存编辑确认。构建资源回归确认只有主窗口入口及 capability，不再携带托盘 WebView 入口。
+- `npm run build`：通过；生产包仅生成 `index.html`，未检出旧托盘 IPC 或开发测试桥接；未安装或修改依赖。
+
+`npm run desktop:build`：Windows Release 构建通过，输出为 `neutrino-proxy-client-app/target/release/neutrino-proxy-client-app.exe`，12007424 字节，`MZ` 文件头；SHA-256：`c811f3df1a470d4e6e5788811189b6c055ec99b26d3b57ab91ee3d98694f3af8`。二进制含原生菜单项，已无 `tray.html` 或旧 `--preview-tray` 入口；构建前复查未发现运行中的同名客户端，使用常规输出目录。
+
+本轮未启动或操控日常客户端，未修改用户配置或中断连接；未提交、推送或发布新版本。Windows / macOS 的原生菜单实际点击、收起、状态切换显示、右键时延和长期内存尚未实机验证，不能以编译或浏览器测试替代。
+
 ## 2026-10-16 旧官方 client 分组兼容与预览修复（本地，未发布）
 
 用户提供的配置结构位于 `neutrino.proxy.client`，原增量导入仅识别 `neutrino.proxy.tunnel` 下的连接字段，导致官方旧格式无法导入。预览同时错误展示了合并候选中的本机已保存地址与 License 状态，让“没有读取到文件字段”看起来像已经读取成功。

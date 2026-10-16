@@ -8,7 +8,7 @@ export default defineConfig({
   server: { host: "127.0.0.1", port: 1420, strictPort: true },
   build: {
     target: ["es2021", "chrome105", "safari14"],
-    rolldownOptions: { input: { main: fileURLToPath(new URL("./index.html", import.meta.url)), tray: fileURLToPath(new URL("./tray.html", import.meta.url)) } },
+    rolldownOptions: { input: { main: fileURLToPath(new URL("./index.html", import.meta.url)) } },
   },
   test: {
     environment: "jsdom",
