@@ -13,6 +13,9 @@
 </p>
 
 # 1、简介
+
+桌面客户端正在独立目录 `neutrino-proxy-client-app/` 中重写，采用 Rust + Tokio、Tauri 2、Vue 3。开发构建与启动方式见[桌面客户端本地运行](docs/05-operations/client-app-local-development.md)，实现范围及验证记录见[桌面客户端开发进展](docs/06-delivery/client-app-development-status.md)。
+
 - 中微子代理（neutrino-proxy）是一个基于netty的、开源的java内网穿透项目。
 - 技术栈：Solon、MybatisPlus、Netty
 - 遵循MIT许可，因此您可以对它进行复制、修改、传播并用于任何个人或商业行为。
@@ -113,7 +116,7 @@
 
 # 📚 作者其他项目
 
-<p align="center">
+<p align="left">
 <a href="https://keydock.asgc.fun?from=neutrino-proxy" target="_blank">
 <img src="https://keydock.asgc.fun/project-recommend/dromara/logo/key-dock-horizontal.png" alt="钥栈 KeyDock 是一款 Chrome 浏览器多环境账号管理与一键登录填充插件，支持本地明文存储与可选 MinIO 同步，让多环境账号切换更高效安全。" width="15%">
 </a>

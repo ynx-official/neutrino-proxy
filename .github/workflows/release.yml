@@ -1,0 +1,317 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build, for example v2.1.0'
+        required: true
+        type: string
+      publish:
+        description: 'Automatically publish a public, stable GitHub Release'
+        type: boolean
+        default: false
+      skip_tests:
+        description: 'Skip regression and smoke tests for this release run only'
+        type: boolean
+        default: false
+
+env:
+  SKIP_TESTS: ${{ github.event_name == 'workflow_dispatch' && inputs.skip_tests || false }}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  prepare:
+    runs-on: ubuntu-22.04
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate tag and resolve exact release commit
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+        run: |
+          python -c 'import os,sys; sys.path.insert(0,"scripts/release"); from release import parse_version; parse_version(os.environ["RELEASE_TAG"])'
+          commit=$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}")
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+      - name: Check out exact release commit
+        env:
+          RELEASE_COMMIT: ${{ steps.version.outputs.commit }}
+        run: |
+          git checkout --detach "$RELEASE_COMMIT"
+      - name: Verify packaging regression tests from the release commit
+        if: env.SKIP_TESTS != 'true'
+        run: |
+          python -m unittest discover -s scripts/release -p 'test_*.py' -v
+
+  admin:
+    needs: prepare
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+      # The existing webpack 3 / node-sass 9 application requires Node 20.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.5'
+          cache: npm
+          cache-dependency-path: neutrino-proxy-admin/package-lock.json
+      - name: Build management UI with same-origin production API
+        working-directory: neutrino-proxy-admin
+        env:
+          NODE_OPTIONS: --openssl-legacy-provider
+        run: |
+          npm ci --legacy-peer-deps --no-audit --no-fund
+          npm run build:release
+          test -s dist/index.html
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-admin
+          path: neutrino-proxy-admin/dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  java:
+    needs: [prepare, admin]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            kind: jar
+            platform: any
+          - runner: ubuntu-22.04
+            kind: native
+            platform: linux-x64
+          - runner: ubuntu-22.04
+            kind: native
+            platform: linux-x64-musl-static
+          - runner: windows-2022
+            kind: native
+            platform: windows-x64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      BUILD_KIND: ${{ matrix.kind }}
+      BUILD_PLATFORM: ${{ matrix.platform }}
+      MAVEN_OPTS: -Dfile.encoding=UTF-8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21.0.2'
+          distribution: graalvm-community
+          native-image-musl: ${{ matrix.platform == 'linux-x64-musl-static' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-release-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-release-maven-
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-admin
+          path: neutrino-proxy-server/src/main/resources/static
+      - name: Inject release version
+        run: python scripts/release/release.py prepare --tag "$RELEASE_TAG"
+      - name: Build and verify JVM applications
+        if: matrix.kind == 'jar'
+        run: mvn -B -ntp -DskipTests="$SKIP_TESTS" clean verify
+      - name: Build native applications
+        if: matrix.kind == 'native'
+        run: |
+          mvn -B -ntp -DskipTests="$SKIP_TESTS" -pl neutrino-proxy-core -am clean install
+          profiles=native
+          if [ "$BUILD_PLATFORM" = linux-x64-musl-static ]; then
+            profiles=native,native-musl
+          fi
+          for module in neutrino-proxy-server neutrino-proxy-client; do
+            (cd "$module" && mvn -B -ntp -DskipTests="$SKIP_TESTS" -P"$profiles" native:compile)
+          done
+      - name: Package final archives
+        run: |
+          for module in server client; do
+            python scripts/release/release.py java --tag "$RELEASE_TAG" --module "$module" --kind "$BUILD_KIND" --platform "$BUILD_PLATFORM"
+          done
+          python scripts/release/release.py record --tag "$RELEASE_TAG" --label "java-$BUILD_KIND-$BUILD_PLATFORM"
+      - name: Require fully static ELF files in the final musl archives
+        if: matrix.platform == 'linux-x64-musl-static'
+        run: python scripts/release/linux_compatibility.py --tag "$RELEASE_TAG" --mode inspect
+      - name: Smoke-test final archives
+        if: env.SKIP_TESTS != 'true'
+        run: python scripts/release/smoke.py --tag "$RELEASE_TAG" --kind "$BUILD_KIND" --platform "$BUILD_PLATFORM"
+      - name: Smoke-test musl archives in pinned CentOS 7 userspace
+        if: matrix.platform == 'linux-x64-musl-static' && env.SKIP_TESTS != 'true'
+        run: python scripts/release/linux_compatibility.py --tag "$RELEASE_TAG" --mode smoke
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-java-${{ matrix.kind }}-${{ matrix.platform }}
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 7
+
+  desktop:
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: windows-2022
+            platform: windows-x64
+            target: x86_64-pc-windows-msvc
+            bundles: nsis
+          - runner: macos-15-intel
+            platform: macos-x64
+            target: x86_64-apple-darwin
+            bundles: dmg
+          - runner: macos-15
+            platform: macos-arm64
+            target: aarch64-apple-darwin
+            bundles: dmg
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      BUILD_PLATFORM: ${{ matrix.platform }}
+      BUILD_TARGET: ${{ matrix.target }}
+      BUILD_BUNDLES: ${{ matrix.bundles }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: neutrino-proxy-client-app/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: ${{ matrix.target }}
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ matrix.platform }}-release-cargo-${{ hashFiles('neutrino-proxy-client-app/Cargo.lock') }}
+          restore-keys: ${{ matrix.platform }}-release-cargo-
+      - name: Inject release version
+        run: python scripts/release/release.py prepare --tag "$RELEASE_TAG"
+      - name: Install desktop build dependencies
+        working-directory: neutrino-proxy-client-app
+        run: npm ci
+      - name: Check Rust formatting and lint
+        working-directory: neutrino-proxy-client-app
+        run: |
+          cargo fmt --all --check
+          cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Test desktop frontend and Rust code
+        if: env.SKIP_TESTS != 'true'
+        working-directory: neutrino-proxy-client-app
+        run: |
+          npm test
+          cargo test --workspace --locked
+      - name: Browser regression checks
+        if: runner.os == 'Windows' && env.SKIP_TESTS != 'true'
+        working-directory: neutrino-proxy-client-app
+        run: npm run test:e2e
+      - name: Generate platform icons and build unsigned installer
+        working-directory: neutrino-proxy-client-app
+        run: |
+          npm run tauri -- icon src-tauri/icons/app-icon.png --output target/release-icons
+          npm run desktop:bundle -- --target "$BUILD_TARGET" --bundles "$BUILD_BUNDLES" -- --locked
+      - name: Package desktop outputs
+        run: |
+          python scripts/release/release.py desktop --tag "$RELEASE_TAG" --platform "$BUILD_PLATFORM" --target "$BUILD_TARGET"
+          python scripts/release/release.py record --tag "$RELEASE_TAG" --label "desktop-$BUILD_PLATFORM"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-desktop-${{ matrix.platform }}
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [prepare, java, desktop]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+      RELEASE_COMMIT: ${{ needs.prepare.outputs.commit }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.commit }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-java-*
+          path: release-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-desktop-*
+          path: release-assets
+          merge-multiple: true
+      - name: Validate all twelve outputs and generate checksums
+        run: python scripts/release/release.py assemble --tag "$RELEASE_TAG" --commit "$RELEASE_COMMIT" --run-url "$RUN_URL"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-complete
+          path: |
+            release-assets/*.zip
+            release-assets/*.exe
+            release-assets/*.dmg
+            release-assets/SHA256SUMS
+            release-assets/release-manifest.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Automatically publish public stable release
+        if: github.event_name == 'push' || inputs.publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/release/publish.py --tag "$RELEASE_TAG" --commit "$RELEASE_COMMIT"
