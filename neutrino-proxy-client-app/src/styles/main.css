@@ -184,12 +184,61 @@ input::-ms-clear {
   background: #fff;
 }
 .connection-page,
+.settings-layout,
 .settings-page,
 .logs-page {
   width: 100%;
   max-width: 736px;
   margin-inline: auto;
 }
+.settings-header.page-header { margin-bottom: 8px; }
+.main-content:has(.settings-layout) { padding-top: 20px; }
+.settings-layout:has(.settings-page) .settings-tabs { margin-bottom: 16px; }
+.settings-layout .settings-page .basic-fields { padding-bottom: 12px; }
+.settings-layout .settings-page .license-field { margin-top: 12px; }
+.settings-layout .settings-page .transport-fields { padding-block: 12px; }
+.settings-layout .settings-page .certificate-field { margin-top: 8px; }
+.settings-layout .settings-page .field label,
+.settings-layout .settings-page .field-label { margin-bottom: 6px; }
+.settings-layout .settings-page .ssl-field .field-label { margin-bottom: 0; }
+.settings-layout .settings-page .disclosure { min-height: 44px; padding-block: 12px; }
+.settings-layout .settings-page .form-actions { margin-top: 0; padding-top: 12px; }
+.settings-tabs {
+  display: flex;
+  gap: 28px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 24px;
+}
+.settings-tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: var(--muted);
+  text-decoration: none;
+}
+.settings-tabs a:hover { color: var(--ink); }
+.settings-tabs a.selected { color: var(--ink); border-bottom-color: var(--ink); }
+.application-settings h2 { font-size: 16px; font-weight: 500; margin: 0 0 8px; }
+.preference-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 88px;
+  padding-block: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.preference-row h3 { font-size: 14px; font-weight: 500; margin: 0 0 6px; }
+.preference-row p { font-size: 13px; color: var(--muted); margin: 0; }
+.preference-row .switch { flex: 0 0 auto; }
+.preference-hint { display: flex; align-items: flex-start; gap: 8px; margin: 20px 0 0; font-size: 12px; color: var(--muted); }
+.preference-hint svg { flex-shrink: 0; margin-top: 1px; }
+.preference-hint a { color: inherit; text-decoration: none; }
+.preference-hint a:hover { color: var(--ink); text-decoration: underline; }
+.preference-save-status { margin-top: 24px; color: var(--muted); font-size: 12px; }
+.preference-error { display: flex; gap: 12px; align-items: center; margin-top: 16px; color: var(--error); font-size: 13px; }
 .page-header {
   display: flex;
   align-items: center;
@@ -867,6 +916,11 @@ input::-ms-clear {
   }
 }
 @media (max-height: 660px) {
+  .main-content:has(.settings-layout) { padding-bottom: 4px; }
+  .settings-layout:has(.settings-page) .settings-tabs { margin-bottom: 12px; }
+  .settings-layout .settings-page .basic-fields { padding-bottom: 8px; }
+  .settings-layout .settings-page .license-field { margin-top: 8px; }
+  .settings-layout .settings-page .transport-fields { padding-block: 10px; }
   .desktop-layout {
     grid-template-rows: 64px minmax(0, 1fr) 28px;
   }

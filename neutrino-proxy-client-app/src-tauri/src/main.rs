@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+mod app_settings;
 mod config_import;
 #[cfg(dev)]
 mod dev_frontend;
@@ -14,6 +15,7 @@ use std::sync::{
     Mutex,
 };
 use tauri::{Emitter, Manager};
+use tauri_plugin_autostart::ManagerExt;
 
 #[derive(Default)]
 struct Navigation(Mutex<Option<String>>);
@@ -27,6 +29,35 @@ struct AppState {
     engine: Engine,
     stored: Mutex<storage::Store>,
     quitting: AtomicBool,
+}
+struct ApplicationSettings(Mutex<app_settings::Store>);
+
+#[tauri::command]
+async fn get_app_settings(app: tauri::AppHandle) -> Result<app_settings::AppSettings, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<ApplicationSettings>()
+            .0
+            .lock()
+            .unwrap()
+            .snapshot(&app_settings::SystemAutoStart::new(&app.autolaunch()))
+    })
+    .await
+    .map_err(|_| "无法读取应用设置".to_owned())?
+}
+
+#[tauri::command]
+async fn save_app_settings(
+    app: tauri::AppHandle,
+    request: app_settings::Patch,
+) -> Result<app_settings::AppSettings, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        app.state::<ApplicationSettings>().0.lock().unwrap().update(
+            request,
+            &app_settings::SystemAutoStart::new(&app.autolaunch()),
+        )
+    })
+    .await
+    .map_err(|_| "无法保存应用设置".to_owned())?
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -241,13 +272,26 @@ fn main() {
         .plugin(tauri_plugin_single_instance::init(|app, _, _| {
             show_window(app)
         }))
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .app_name(app_settings::STARTUP_NAME)
+                .build(),
+        )
         .setup(|app| {
             let store = storage::Store::load(app.handle());
+            let preferences =
+                app_settings::Store::load(app.path().app_config_dir()?.join("app-settings.json"));
             let engine = Engine::new();
             engine.configure(store.config.clone(), &store.secrets);
             if let Some(error) = store.error.as_ref() {
                 engine.log("error", "配置", error);
             }
+            if let Some(error) = preferences.error.as_ref() {
+                engine.log("error", "应用设置", error);
+            }
+            let startup = (preferences.auto_connect && store.error.is_none())
+                .then(|| (store.config.clone(), store.secrets.clone()));
+            app.manage(ApplicationSettings(Mutex::new(preferences)));
             app.manage(AppState {
                 engine: engine.clone(),
                 stored: Mutex::new(store),
@@ -270,11 +314,22 @@ fn main() {
                     }
                 }
             });
+            // Only process setup consumes this attempt; restoring a tray window and
+            // changing either preference never start a connection themselves.
+            if let Some((config, secrets)) = startup {
+                tauri::async_runtime::spawn(async move {
+                    if let Err(error) = engine.connect_on_startup(config, secrets).await {
+                        engine.log("error", "启动", &error);
+                    }
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             take_navigation,
             get_snapshot,
+            get_app_settings,
+            save_app_settings,
             connect,
             disconnect,
             save_config,

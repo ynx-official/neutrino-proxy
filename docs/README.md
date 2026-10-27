@@ -1,7 +1,7 @@
 # 项目文档索引
 
 状态：Review  
-最后更新：2026-10-26
+最后更新：2026-10-27
 
 关联文档：[仓库说明](../README.md)、[协作约定](../AGENTS.md)
 
@@ -18,6 +18,7 @@
 5. [分阶段实施计划](06-delivery/client-app-implementation-plan.md)：各阶段产物、依赖和完成条件。
 6. [样图生成记录](02-design/client-app-mockup-prompts.md)：内置 image_gen 的实际提示词、修订及静态目视检查边界。
 7. [Java client 七项逻辑同步](03-architecture/client-app-java-compatibility.md)：2026-10-26 的水位线、空闲事件、拆包、TLS、并发与旧 ID 迁移实现及回归证据。
+8. [应用设置与启动行为](03-architecture/client-app-architecture.md#应用偏好与进程启动2026-10-27)：开机自启、启动单次自动连接、偏好持久化及失败处理；[已确认样图](02-design/assets/client-app-application-settings-approved.png)、[实际界面](02-design/client-app-ui.md#设置与日志)、[操作说明](05-operations/client-app-local-development.md)和[验收场景 U28–U34](04-quality/client-app-acceptance.md)。
 
 原始概念样图（已由当前界面设计取代，历史依据见[初稿归档](99-archive/client-app-ui-initial.md)）：[已连接主页](02-design/assets/client-app-connected.png)、[首次连接配置](02-design/assets/client-app-connection-setup.png)。用户已确认 `airtable` 风格；图片为概念设计，包含虚构示例数据。
 

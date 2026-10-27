@@ -1,9 +1,30 @@
 # 桌面客户端开发进展与验证记录
 
 状态：Review  
-最后更新：2026-10-26
+最后更新：2026-10-27
 
 关联文档：[总体方案](../00-project/client-app-proposal.md)、[界面设计](../02-design/client-app-ui.md)、[架构设计](../03-architecture/client-app-architecture.md)、[完整验收计划](../04-quality/client-app-acceptance.md)、[本地运行](../05-operations/client-app-local-development.md)
+
+## 2026-10-27 应用设置与启动行为
+
+用户确认应用设置样图并授权实现。设置页现分为“连接配置 / 应用设置”；新增独立的开机自启、启动后自动连接开关，默认关闭、自动保存。启动时仅在连接配置完整、凭证读取成功时发起一次初始尝试，失败停止，认证成功后恢复既有断线重连。托盘窗口重建、第二实例唤起及运行中修改开关不重复触发。完整规则、IPC 与存储边界见[架构说明](../03-architecture/client-app-architecture.md#应用偏好与进程启动2026-10-27)，操作见[本地运行](../05-operations/client-app-local-development.md)。
+
+TDD 证据：先新增启动失败用例，旧重连入口实际出现第二次连接而失败；新增页面用例因缺少应用设置页签失败，再实现两个入口。布局回归发现小窗口新增页签后高级设置被固定操作区遮挡，调整表单间距后保持原断言通过。Windows 注册命令检查另外复现上游裸路径缺少引号，增加平台适配后通过；未放宽失败断言。
+
+| 检查 | 本轮结果 |
+|---|---|
+| `cargo test --workspace --locked` | 69 项通过：内核 37、宿主 32。覆盖初始网络 / 认证失败不重试、成功后重连、手动连接策略保留、缺配置跳过、重复启动及用户先断开的竞态边界 |
+| 应用偏好持久化 | 重启读回、反复修改、连接配置不变、损坏 / 未来版本保留、落盘失败不修改内存及拒绝多项混合更新通过 |
+| Windows 系统启动项 | 真实插件及当前用户注册表，使用唯一测试名称；启用 / 读取 / 禁用、启动命令引号、任务管理器禁用状态及再次开启通过；测试 Run 和 StartupApproved 值已清理，未修改用户的 Neutrino 自启设置 |
+| `npm test` | 17 项通过，含加载 / 保存期间禁用、只提交变更项、失败不显示已保存、重新读取 |
+| Playwright / Edge | 12 项通过；含跨页未保存确认、两个开关独立保存 / 刷新、失败回读、既有导入 / SSL / 高级设置流程和最小窗口可用性；使用开发 IPC 替身 |
+| 格式与静态检查 | `cargo fmt --all -- --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings` 通过 |
+| 生产构建 | `npm run desktop:build` 退出码 0；前端 Vite 和 Windows Release 可执行程序构建通过 |
+| 目视检查 | [应用设置](../04-quality/assets/client-app-application-settings.png)、[连接配置含 SSL](../04-quality/assets/client-app-settings-tabs.png)，860 × 620，文字、开关、页签及操作按钮无重叠 |
+
+新增 Cargo 依赖 `tauri-plugin-autostart`（锁定 2.7.0）和 Windows 平台 `windows-registry`，后者补全安全的带引号启动命令；Tauri `test` 仅用于测试运行时。npm 依赖和锁文件未改，没有重新安装 npm 依赖。应用偏好与 License 存储隔离，未改变 Java 客户端和服务端。
+
+本轮未执行系统注销 / 重启后的自动启动、macOS 实机、原生窗口人工点击或真实服务连接；注册表和浏览器测试不替代这些验收。未生成安装包，未提交、推送或发布。当前本地可执行文件路径为 `neutrino-proxy-client-app/target/release/neutrino-proxy-client-app.exe`，12536320 字节，SHA-256：`ac83caae28d59c49c4563e4399d362019f6ed3de13a9037c3bb3b86a03afa86a`；构建不会替换已安装 App，使用新版前需从旧版托盘完整退出。`git diff --check` 通过，测试自有开发服务已退出，1420 端口无监听。
 
 ## 2026-10-26 七项 Java 逻辑同步
 

@@ -9,7 +9,10 @@ use futures_util::StreamExt;
 use serde::Serialize;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
 };
 use tokio::{
     io::AsyncReadExt,
@@ -71,6 +74,7 @@ struct Inner {
     snapshot: Mutex<Snapshot>,
     events: watch::Sender<Snapshot>,
     running: AsyncMutex<Option<Running>>,
+    startup_consumed: AtomicBool,
 }
 #[derive(Clone)]
 pub struct Engine(Arc<Inner>);
@@ -87,6 +91,7 @@ impl Engine {
             snapshot: Mutex::new(snapshot),
             events,
             running: AsyncMutex::new(None),
+            startup_consumed: AtomicBool::new(false),
         }))
     }
     pub fn snapshot(&self) -> Snapshot {
@@ -146,23 +151,47 @@ impl Engine {
             return Err(errors.values().cloned().collect::<Vec<_>>().join("；"));
         }
         let mut running = self.0.running.lock().await;
+        self.0.startup_consumed.store(true, Ordering::Relaxed);
         if let Some(previous) = running.take() {
             previous.cancel.cancel();
             let _ = previous.task.await;
         }
+        *running = Some(self.start(config, secrets, false));
+        Ok(())
+    }
+    fn start(&self, config: ClientConfig, secrets: Secrets, initial_once: bool) -> Running {
         self.configure(config.clone(), &secrets);
         self.status("connecting", "正在连接服务器");
         let cancel = CancellationToken::new();
         let token = cancel.clone();
         let engine = self.clone();
         let task = tokio::spawn(async move {
-            engine.supervise(config, secrets, token).await;
+            engine.supervise(config, secrets, token, initial_once).await;
         });
-        *running = Some(Running { cancel, task });
-        Ok(())
+        Running { cancel, task }
+    }
+    /// Consume the process-start attempt even when configuration is incomplete.
+    /// The running lock gives manual connect/disconnect priority over a delayed startup job.
+    pub async fn connect_on_startup(
+        &self,
+        config: ClientConfig,
+        secrets: Secrets,
+    ) -> Result<bool, String> {
+        let mut running = self.0.running.lock().await;
+        if self.0.startup_consumed.swap(true, Ordering::Relaxed) || running.is_some() {
+            return Ok(false);
+        }
+        if !validate(&config, !secrets.license.trim().is_empty()).is_empty() {
+            self.log("info", "启动", "连接配置不完整，已跳过自动连接");
+            return Ok(false);
+        }
+        self.log("info", "启动", "使用已保存的配置自动尝试连接一次");
+        *running = Some(self.start(config, secrets, true));
+        Ok(true)
     }
     pub async fn disconnect(&self) {
         let mut running = self.0.running.lock().await;
+        self.0.startup_consumed.store(true, Ordering::Relaxed);
         self.status("stopping", "正在断开连接");
         if let Some(previous) = running.take() {
             previous.cancel.cancel();
@@ -178,7 +207,13 @@ impl Engine {
         });
         self.log("info", "连接", "连接已断开");
     }
-    async fn supervise(&self, config: ClientConfig, secrets: Secrets, cancel: CancellationToken) {
+    async fn supervise(
+        &self,
+        config: ClientConfig,
+        secrets: Secrets,
+        cancel: CancellationToken,
+        initial_once: bool,
+    ) {
         let tls = if config.ssl {
             let c = config.clone();
             let secret = secrets.clone();
@@ -195,6 +230,7 @@ impl Engine {
         } else {
             None
         };
+        let mut connected_once = false;
         loop {
             if cancel.is_cancelled() {
                 break;
@@ -202,7 +238,7 @@ impl Engine {
             self.status("connecting", "正在连接服务器");
             let session_cancel = cancel.child_token();
             let tracker = TaskTracker::new();
-            let result = tokio::select! {_ = cancel.cancelled()=>None,result=self.run_session(&config,&secrets,tls.clone(),session_cancel.clone(),tracker.clone())=>Some(result)};
+            let result = tokio::select! {_ = cancel.cancelled()=>None,result=self.run_session(&config,&secrets,tls.clone(),session_cancel.clone(),tracker.clone(), &mut connected_once)=>Some(result)};
             session_cancel.cancel();
             tracker.close();
             tracker.wait().await;
@@ -215,7 +251,9 @@ impl Engine {
                 Err((msg, auth)) => (msg, !auth || config.unlimited),
             };
             self.log("error", "连接", &message);
-            if !retry {
+            // A startup failure ends the initial attempt. Once authenticated, normal
+            // reconnect semantics apply for the rest of this connection's lifetime.
+            if !retry || (initial_once && !connected_once) {
                 self.status("error", &message);
                 break;
             }
@@ -236,6 +274,7 @@ impl Engine {
         tls: Option<Arc<rustls::ClientConfig>>,
         cancel: CancellationToken,
         tracker: TaskTracker,
+        connected_once: &mut bool,
     ) -> Result<(), (String, bool)> {
         let stream = transport::open(config, tls.clone())
             .await
@@ -282,6 +321,7 @@ impl Engine {
                 code == 1,
             ));
         }
+        *connected_once = true;
         self.change(|s| {
             s.state = "connected".into();
             s.detail = "服务器认证通过，连接正在运行".into();

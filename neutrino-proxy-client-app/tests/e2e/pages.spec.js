@@ -63,6 +63,13 @@ async function bridge(page, connected = false) {
           return () => {};
         },
         invoke: async (command, args) => {
+          if (command === "get_app_settings") return JSON.parse(localStorage.getItem("appSettings") || '{"autoStart":false,"autoConnect":false}');
+          if (command === "save_app_settings") {
+            if (window.__settingsFailure) throw new Error("无法更新系统开机自启设置");
+            const settings = { ...JSON.parse(localStorage.getItem("appSettings") || '{"autoStart":false,"autoConnect":false}'), ...args.request };
+            localStorage.setItem("appSettings", JSON.stringify(settings));
+            return settings;
+          }
           if (command === "take_navigation") { const path = pendingRoute; pendingRoute = null; return path; }
           if (command === "get_snapshot") return structuredClone(snapshot);
           if (command === "import_config") return structuredClone(window.__importFixture);
@@ -103,6 +110,37 @@ async function bridge(page, connected = false) {
     { connected },
   );
 }
+
+test("application settings persist independently and preserve connection edits", async ({ page }) => {
+  await bridge(page, true);
+  await page.setViewportSize({ width: 860, height: 620 });
+  await page.goto("/#/settings");
+  await page.getByLabel("服务器地址", { exact: true }).fill("unsaved.example.test");
+  page.once("dialog", dialog => dialog.dismiss());
+  await page.getByRole("link", { name: "应用设置", exact: true }).click();
+  await expect(page.getByLabel("服务器地址", { exact: true })).toHaveValue("unsaved.example.test");
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("link", { name: "应用设置", exact: true }).click();
+  const autoStart = page.getByRole("switch", { name: "开机自启", exact: true });
+  const autoConnect = page.getByRole("switch", { name: "启动后自动连接", exact: true });
+  await expect(autoStart).not.toBeChecked();
+  await expect(autoConnect).not.toBeChecked();
+  await autoConnect.click();
+  await expect(autoConnect).toBeChecked();
+  await expect(autoConnect.locator("span")).toHaveCSS("transform", "matrix(1, 0, 0, 1, 16, 0)");
+  await page.screenshot({ path: "test-results/application-settings.png" });
+  await autoStart.click();
+  await expect(autoStart).toBeChecked();
+  await page.reload();
+  await expect(autoStart).toBeChecked();
+  await expect(autoConnect).toBeChecked();
+  await page.evaluate(() => { window.__settingsFailure = true; });
+  await autoStart.click();
+  await expect(page.getByRole("alert")).toContainText("无法更新系统开机自启设置");
+  await expect(autoStart).toBeChecked();
+  await page.getByRole("link", { name: "连接配置", exact: true }).click();
+  await expect(page.getByLabel("服务器地址", { exact: true })).toHaveValue("edge.example.com");
+});
 
 test("first run validates configuration and navigates after saving", async ({
   page,
@@ -247,6 +285,7 @@ test("minimum size and long content remain usable", async ({ page }) => {
     .getByRole("button", { name: "保存并重连" })
     .boundingBox();
   expect(primaryAction.y + primaryAction.height).toBeLessThanOrEqual(620);
+  await page.screenshot({ path: "test-results/settings-minimum-ssl.png", fullPage: true });
   expect(
     await page.getByRole("button", { name: "高级设置" }).evaluate((element) => {
       const box = element.getBoundingClientRect();
@@ -276,7 +315,7 @@ test("default configuration fits the window without unnecessary scrolling", asyn
 }) => {
   await bridge(page);
   await page.goto("/#/settings");
-  await expect(page.getByRole("heading", { name: "配置连接" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "设置", exact: true })).toBeVisible();
   const size = await page.locator(".main-content").evaluate((element) => ({
     scroll: element.scrollHeight,
     visible: element.clientHeight,

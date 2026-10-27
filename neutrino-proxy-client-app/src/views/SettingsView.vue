@@ -78,12 +78,6 @@ async function selectCertificate() {
 </script>
 <template>
   <section class="settings-page">
-    <header class="page-header form-header">
-      <h1>配置连接</h1>
-      <button class="button secondary" @click="actions.importConfig?.()">
-        <Icon name="upload" :size="17" />导入配置
-      </button>
-    </header>
     <form novalidate @submit.prevent="submit(true)">
       <div class="settings-panel">
         <div class="basic-fields">

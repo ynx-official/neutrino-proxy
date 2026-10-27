@@ -42,6 +42,8 @@ const actions = {
   setDirty: (value) => (dirty.value = value),
   connect: () => safe(() => call("connect")),
   disconnect: () => safe(() => call("disconnect")),
+  getAppSettings: () => call("get_app_settings"),
+  saveAppSettings: (request) => call("save_app_settings", { request }),
   save: (request) =>
     run(async () => {
       apply(await call("save_config", { request }));
