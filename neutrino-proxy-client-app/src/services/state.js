@@ -8,6 +8,13 @@ export const defaultConfig = () => ({
   udpPortRange: "10000-10500",
   readIdleSeconds: 120,
   heartbeatSeconds: 20,
+  allIdleSeconds: 0,
+  waterMark: "",
+  maxFrameLength: 2097152,
+  lengthFieldOffset: 0,
+  lengthFieldLength: 4,
+  lengthAdjustment: 0,
+  initialBytesToStrip: 0,
   certificatePath: "",
 });
 export const initialModel = () => ({

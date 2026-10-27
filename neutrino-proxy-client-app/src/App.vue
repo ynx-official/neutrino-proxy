@@ -12,6 +12,7 @@ const model = reactive(initialModel()),
   busy = ref(false),
   dirty = ref(false),
   importPreview = ref(null),
+  importRevision = ref(0),
   ready = ref(false);
 const router = useRouter();
 let unlisten, unclose, unnavigate;
@@ -60,6 +61,8 @@ const actions = {
 async function applyImport() {
   await safe(async () => {
     apply(await call("apply_import", { id: importPreview.value.id }));
+    // An explicitly confirmed import replaces the form draft, including hidden protocol fields.
+    importRevision.value += 1;
     importPreview.value = null;
     dirty.value = false;
     await router.push("/settings");
@@ -126,7 +129,7 @@ onUnmounted(() => {
           :is="Component"
           :model="model"
           :actions="actions"
-          :key="$route.path"
+          :key="`${$route.path}:${importRevision}`"
       /></RouterView>
     </main>
     <footer class="app-footer">

@@ -8,6 +8,20 @@ const preview = (importedFields, canApply = true) => ({
     license: "must-not-render-license", storePassword: "must-not-render-password" },
 });
 describe("import field provenance", () => {
+  it("shows every imported protocol setting with its actual value", () => {
+    const fields = ["water-mark", "all-idle-time-seconds", "max-frame-length", "length-field-offset", "length-field-length", "length-adjustment", "initial-bytes-to-strip"];
+    const wrapper = mount(ImportFields, { props: { preview: {
+      ...preview(fields.map((key) => `neutrino.proxy.protocol.${key}`)),
+      config: { waterMark: "32KB/1MB", allIdleSeconds: 17, maxFrameLength: 4194304,
+        lengthFieldOffset: 2, lengthFieldLength: 4, lengthAdjustment: -2, initialBytesToStrip: 2 },
+    } } });
+    expect(wrapper.findAll("dl > div")).toHaveLength(7);
+    expect(wrapper.text()).toContain("32KB/1MB");
+    expect(wrapper.text()).toContain("17 秒");
+    expect(wrapper.text()).toContain("4194304");
+    expect(wrapper.text()).toContain("-2");
+    wrapper.unmount();
+  });
   it("does not present preserved server or license values as file contents", () => {
     const wrapper = mount(ImportFields, { props: { preview: preview(["neutrino.proxy.protocol.read-idle-time"]) } });
     expect(wrapper.text()).toContain("75 秒");

@@ -1,7 +1,7 @@
 # 桌面客户端架构与兼容性设计
 
 状态：Review  
-最后更新：2026-10-16
+最后更新：2026-10-26
 
 关联文档：[总体方案](../00-project/client-app-proposal.md)、[界面设计](../02-design/client-app-ui.md)、[验收方案](../04-quality/client-app-acceptance.md)、[实施计划](../06-delivery/client-app-implementation-plan.md)
 
@@ -145,7 +145,7 @@ stateDiagram-v2
 
 导入结果另附 `importedFields`，记录实际成功读取字段的标准化标识；完整 `config` 是合并后的候选值，不能视为文件原始内容。预览只展示 `importedFields` 中的字段，凭证仅显示已读取标记。未识别到字段时不展示本机地址或凭证状态，避免“本地回填值被当作已导入”的误导。
 
-此前“遇到自定义协议参数阻止整份导入”的策略由本次指令替代：这些参数显示为已跳过，其他可用字段继续导入；不声称旧客户端的自定义协议已被迁移或实际生效。导入普通字段成功不能作为协议完全兼容的证据。
+2026-10-16 曾将未实现的自定义协议参数列为已跳过。2026-10-26 用户明确要求同步七项差异，现已支持水位线、全部长度字段参数及全空闲时间，并迁移所选 YAML 同目录的旧 ID。当前行为及验证边界以[七项逻辑同步](client-app-java-compatibility.md)为准；这条修订替代此前跳过这些字段的策略。
 
 
 | 旧字段或来源 | 新客户端处理 | 验证重点 |
@@ -158,7 +158,7 @@ stateDiagram-v2
 | reconnection.interval-seconds / unlimited | 保留业务含义 | 网络失败与认证失败分别验证 |
 | protocol.read-idle-time / write-idle-time / all-idle-time-seconds | 映射异步超时和心跳调度 | 0 值含义、单位、后台和睡眠恢复 |
 | protocol.max-frame-length | 保留最大帧约束 | 边界与长度前缀口径一致 |
-| protocol.length-field-* / initial-bytes-to-strip / length-adjustment | 默认值先完全兼容；非默认组合逐项验证 | 不支持项在预览列为已跳过，不阻止其他字段导入，运行时保留原有参数 |
+| protocol.length-field-* / initial-bytes-to-strip / length-adjustment | 按 Java LengthFieldBasedFrameDecoder 语义导入并应用，发送格式保持固定 | 无效组合保留已存拆包配置；实际 Java 向量覆盖 1/2/3/4/8 字节、调整及剥离 |
 | protocol.water-mark | 映射字节缓冲高低水位 | 单位解析、上下限和恢复读取 |
 | udp.puppet-port-range | 保留范围 | 端口冲突、耗尽、释放与跨平台绑定 |
 | tunnel.thread-count / udp.*-thread-count | 保存原参数，提出 Tokio 调度映射 | 不宣称线程数与 Netty 完全等价；映射属于兼容性审阅项 |
@@ -171,6 +171,8 @@ stateDiagram-v2
 原默认 SSL 为开启、端口 9002、重连间隔 10 秒、认证无限重试关闭、写空闲 20 秒、读空闲 120 秒、UDP 端口范围 10000–10500。以[原 app.yml](../../neutrino-proxy-client/src/main/resources/app.yml)和[配置类](../../neutrino-proxy-client/src/main/java/org/dromara/neutrinoproxy/client/config/ProxyConfig.java)为事实依据；迁移不能只覆盖界面可见的四个基础字段。
 
 ## 5. TLS 选型的验证门槛
+
+2026-10-26 已完成本轮决策和实现：按用户要求对齐 Java 的无名称验证策略，保持证书信任和握手签名验证；内置 1024 位 RSA JKS 已进行 TLS 1.2/1.3 真实握手回归。完整策略、直接信任证书的有效期语义及算法限制见[七项同步 TLS 决策](client-app-java-compatibility.md#tls-决策与限制)。以下保留原选型的检查依据，不再将名称策略列为待决定事项。
 
 优先验证 `rustls` / `tokio-rustls`；其兼容协议和算法范围应以锁定版本文档为准。若既有测试证书无法使用，先定位是 JKS 格式、信任链、名称校验还是算法差异，再评估实现选择；不提前承诺某库完全兼容。参考：[rustls 官方文档](https://docs.rs/rustls/latest/rustls/)。
 

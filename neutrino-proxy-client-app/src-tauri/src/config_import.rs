@@ -1,4 +1,6 @@
-use neutrino_client_core::config::{udp_range, validate, ClientConfig, Secrets};
+use neutrino_client_core::config::{
+    parse_water_mark, udp_range, valid_framing, validate, ClientConfig, Secrets,
+};
 use serde_json::Value;
 use std::path::Path;
 
@@ -25,6 +27,7 @@ pub fn parse_import(
     };
     let mut config = current.clone();
     let mut secrets = current_secrets.clone();
+    let mut migrated_identity = false;
     reader.set(
         "neutrino.proxy.tunnel.server-ip",
         &mut config.server,
@@ -61,6 +64,25 @@ pub fn parse_import(
         &mut config.client_id,
         non_blank,
     );
+    if !reader.imported.contains(&"neutrino.proxy.tunnel.client-id") {
+        // Selection of the YAML authorizes only its sibling identity, never cwd/home discovery.
+        let identity = path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join(".NEUTRINO_PROXY_CLIENT_ID");
+        if let Ok(metadata) = std::fs::symlink_metadata(&identity) {
+            if metadata.is_file() && !metadata.file_type().is_symlink() && metadata.len() <= 4096 {
+                if let Some(id) = std::fs::read_to_string(identity).ok().and_then(non_blank) {
+                    config.client_id = id;
+                    migrated_identity = true;
+                    reader.imported.push("neutrino.proxy.tunnel.client-id");
+                    reader
+                        .skipped
+                        .retain(|key| *key != "neutrino.proxy.tunnel.client-id");
+                }
+            }
+        }
+    }
     reader.set(
         "neutrino.proxy.tunnel.jks-path",
         &mut config.certificate_path,
@@ -85,7 +107,7 @@ pub fn parse_import(
     reader.set(
         "neutrino.proxy.tunnel.reconnection.interval-seconds",
         &mut config.reconnect_seconds,
-        |value| value.parse::<u64>().ok().filter(|seconds| *seconds > 0),
+        |value| seconds(value).filter(|seconds| *seconds > 0),
     );
     reader.set(
         "neutrino.proxy.tunnel.reconnection.unlimited",
@@ -100,28 +122,71 @@ pub fn parse_import(
     reader.set(
         "neutrino.proxy.protocol.read-idle-time",
         &mut config.read_idle_seconds,
-        |value| value.parse().ok(),
+        seconds,
     );
     reader.set(
         "neutrino.proxy.protocol.write-idle-time",
         &mut config.heartbeat_seconds,
+        seconds,
+    );
+    reader.set(
+        "neutrino.proxy.protocol.all-idle-time-seconds",
+        &mut config.all_idle_seconds,
+        seconds,
+    );
+    reader.set(
+        "neutrino.proxy.protocol.water-mark",
+        &mut config.water_mark,
+        |value| (value.trim().is_empty() || parse_water_mark(&value).is_some()).then_some(value),
+    );
+    reader.set(
+        "neutrino.proxy.protocol.max-frame-length",
+        &mut config.max_frame_length,
+        |value| java_size(value).filter(|n| *n > 0),
+    );
+    reader.set(
+        "neutrino.proxy.protocol.length-field-offset",
+        &mut config.length_field_offset,
+        java_size,
+    );
+    reader.set(
+        "neutrino.proxy.protocol.length-field-length",
+        &mut config.length_field_length,
+        |value| java_size(value).filter(|n| matches!(n, 1 | 2 | 3 | 4 | 8)),
+    );
+    reader.set(
+        "neutrino.proxy.protocol.length-adjustment",
+        &mut config.length_adjustment,
         |value| value.parse().ok(),
     );
-    // Unsupported framing knobs must not replace the working transport defaults.
-    for (key, expected) in [
-        ("neutrino.proxy.protocol.max-frame-length", "2097152"),
-        ("neutrino.proxy.protocol.length-field-offset", "0"),
-        ("neutrino.proxy.protocol.length-field-length", "4"),
-        ("neutrino.proxy.protocol.initial-bytes-to-strip", "0"),
-        ("neutrino.proxy.protocol.length-adjustment", "0"),
-        ("neutrino.proxy.protocol.all-idle-time-seconds", "0"),
-        ("neutrino.proxy.protocol.water-mark", ""),
-    ] {
-        if lookup(&reader.yaml, key)
-            .is_some_and(|value| resolve(value).as_deref() != Some(expected))
-        {
-            reader.skipped.push(key);
+    reader.set(
+        "neutrino.proxy.protocol.initial-bytes-to-strip",
+        &mut config.initial_bytes_to_strip,
+        java_size,
+    );
+    // Framing is a tuple: a partial update must not save a combination that cannot initialize.
+    if !valid_framing(&config) {
+        for key in [
+            "max-frame-length",
+            "length-field-offset",
+            "length-field-length",
+            "length-adjustment",
+            "initial-bytes-to-strip",
+        ] {
+            if let Some(index) = reader
+                .imported
+                .iter()
+                .position(|field| *field == format!("neutrino.proxy.protocol.{key}"))
+            {
+                let field = reader.imported.remove(index);
+                reader.skipped.push(field);
+            }
         }
+        config.max_frame_length = current.max_frame_length;
+        config.length_field_offset = current.length_field_offset;
+        config.length_field_length = current.length_field_length;
+        config.length_adjustment = current.length_adjustment;
+        config.initial_bytes_to_strip = current.initial_bytes_to_strip;
     }
     let can_apply = !reader.imported.is_empty();
     let mut notes = vec![if can_apply {
@@ -129,6 +194,11 @@ pub fn parse_import(
     } else {
         "未发现可导入的配置".into()
     }];
+    if migrated_identity {
+        notes.push(
+            "客户端 ID 来自所选 YAML 同目录的 .NEUTRINO_PROXY_CLIENT_ID，原文件保持不变".into(),
+        );
+    }
     if !reader.skipped.is_empty() {
         // Report only known field names, never imported values or environment contents.
         notes.push(format!(
@@ -198,6 +268,16 @@ fn lookup<'a>(value: &'a Value, key: &str) -> Option<&'a Value> {
 fn non_blank(value: String) -> Option<String> {
     (!value.trim().is_empty()).then_some(value)
 }
+fn seconds(value: String) -> Option<u64> {
+    // Netty normalizes nonpositive idle durations to disabled timers.
+    value.parse::<i32>().ok().map(|n| n.max(0) as u64)
+}
+fn java_size(value: String) -> Option<usize> {
+    value
+        .parse::<usize>()
+        .ok()
+        .filter(|n| *n <= i32::MAX as usize)
+}
 fn resolve(value: &Value) -> Option<String> {
     let raw = if let Some(s) = value.as_str() {
         s.to_owned()
@@ -218,6 +298,114 @@ fn resolve(value: &Value) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn java_nonpositive_idle_values_disable_the_corresponding_timers() {
+        let parsed = parse("neutrino.proxy.protocol:\n  read-idle-time: -1\n  write-idle-time: 0\n  all-idle-time-seconds: -2147483648\n");
+        assert_eq!(
+            (
+                parsed.config.read_idle_seconds,
+                parsed.config.heartbeat_seconds,
+                parsed.config.all_idle_seconds
+            ),
+            (0, 0, 0)
+        );
+        assert_eq!(parsed.imported_fields.len(), 3);
+    }
+
+    #[test]
+    fn invalid_protocol_tuple_and_overflow_keep_saved_values() {
+        let parsed = parse("neutrino.proxy.protocol:\n  max-frame-length: 4\n  length-field-offset: 8\n  water-mark: 1GB/2GB\n  write-idle-time: 2147483648\nneutrino.proxy.tunnel.server-ip: new.example.test\n");
+        let (saved, _) = current();
+        assert_eq!(parsed.config.max_frame_length, saved.max_frame_length);
+        assert_eq!(parsed.config.length_field_offset, saved.length_field_offset);
+        assert_eq!(parsed.config.water_mark, saved.water_mark);
+        assert_eq!(parsed.config.heartbeat_seconds, saved.heartbeat_seconds);
+        assert_eq!(parsed.config.server, "new.example.test");
+        assert_eq!(parsed.imported_fields, ["neutrino.proxy.tunnel.server-ip"]);
+        assert!(parsed.notes.join(" ").contains("已跳过"));
+    }
+
+    #[test]
+    fn missing_blank_oversized_and_non_utf8_identity_keep_current_id() {
+        let directory =
+            std::env::temp_dir().join(format!("neutrino-identity-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&directory).unwrap();
+        let identity = directory.join(".NEUTRINO_PROXY_CLIENT_ID");
+        let (config, secrets) = current();
+        let load = || {
+            parse_import(
+                b"neutrino.proxy.protocol.read-idle-time: 30",
+                &directory.join("app.yml"),
+                &config,
+                &secrets,
+            )
+            .unwrap()
+        };
+        assert_eq!(load().config.client_id, config.client_id);
+        for bytes in [b" \r\n".to_vec(), vec![b'a'; 4097], vec![255]] {
+            std::fs::write(&identity, bytes).unwrap();
+            let imported = load();
+            assert_eq!(imported.config.client_id, config.client_id);
+            assert!(!imported
+                .imported_fields
+                .contains(&"neutrino.proxy.tunnel.client-id"));
+        }
+        std::fs::remove_file(identity).unwrap();
+        std::fs::remove_dir(directory).unwrap();
+    }
+
+    #[test]
+    fn latest_java_protocol_fields_are_imported_instead_of_skipped() {
+        let parsed = parse("neutrino.proxy.protocol:\n  water-mark: 32KB/1MB\n  all-idle-time-seconds: 60\n  max-frame-length: 4194304\n  length-field-offset: 2\n  length-field-length: 4\n  length-adjustment: -2\n  initial-bytes-to-strip: 2\n");
+        assert!(parsed.can_apply);
+        let config = serde_json::to_value(&parsed.config).unwrap();
+        assert_eq!(config["waterMark"], "32KB/1MB");
+        assert_eq!(config["allIdleSeconds"], 60);
+        assert_eq!(config["maxFrameLength"], 4194304);
+        assert_eq!(config["lengthFieldOffset"], 2);
+        assert_eq!(config["lengthFieldLength"], 4);
+        assert_eq!(config["lengthAdjustment"], -2);
+        assert_eq!(config["initialBytesToStrip"], 2);
+        assert_eq!(parsed.imported_fields.len(), 7);
+        assert!(!parsed.notes.join(" ").contains("已跳过"));
+    }
+
+    #[test]
+    fn selected_yaml_sibling_identity_is_migrated_with_explicit_id_taking_precedence() {
+        let directory =
+            std::env::temp_dir().join(format!("neutrino-identity-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir(&directory).unwrap();
+        let identity_path = directory.join(".NEUTRINO_PROXY_CLIENT_ID");
+        std::fs::write(&identity_path, "old-stable-client").unwrap();
+        let (config, secrets) = current();
+        let imported = parse_import(
+            b"neutrino.proxy.tunnel.server-ip: imported.example.com",
+            &directory.join("app.yml"),
+            &config,
+            &secrets,
+        )
+        .unwrap();
+        let explicit = parse_import(
+            b"neutrino.proxy.tunnel.client-id: explicit-client",
+            &directory.join("app.yml"),
+            &config,
+            &secrets,
+        )
+        .unwrap();
+        let original = std::fs::read_to_string(&identity_path).unwrap();
+        std::fs::remove_file(identity_path).unwrap();
+        std::fs::remove_dir(directory).unwrap();
+        assert_eq!(imported.config.client_id, "old-stable-client");
+        assert!(imported
+            .imported_fields
+            .contains(&"neutrino.proxy.tunnel.client-id"));
+        assert_eq!(explicit.config.client_id, "explicit-client");
+        assert_eq!(
+            original, "old-stable-client",
+            "migration must not rewrite the legacy identity"
+        );
+    }
 
     fn current() -> (ClientConfig, Secrets) {
         (
@@ -309,10 +497,10 @@ mod tests {
         assert!(parsed.config.unlimited);
         assert_eq!(parsed.config.heartbeat_seconds, 33);
         assert_eq!(parsed.secrets.license, "test-license");
+        assert_eq!(parsed.config.max_frame_length, 1000000);
         assert!(parsed
-            .notes
-            .iter()
-            .any(|note| note.contains("max-frame-length")));
+            .imported_fields
+            .contains(&"neutrino.proxy.protocol.max-frame-length"));
         let notes = parsed.notes.join(" ");
         assert!(!notes.contains("test-license") && !notes.contains("test-password"));
     }

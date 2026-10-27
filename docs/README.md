@@ -1,7 +1,7 @@
 # 项目文档索引
 
 状态：Review  
-最后更新：2026-10-16
+最后更新：2026-10-26
 
 关联文档：[仓库说明](../README.md)、[协作约定](../AGENTS.md)
 
@@ -17,6 +17,7 @@
 4. [验收与验证方案](04-quality/client-app-acceptance.md)：功能、兼容性、长期运行和平台测试，含原生图标菜单与 `cargo run` 一起启动前端的验收；操作说明见[本地开发](05-operations/client-app-local-development.md)。
 5. [分阶段实施计划](06-delivery/client-app-implementation-plan.md)：各阶段产物、依赖和完成条件。
 6. [样图生成记录](02-design/client-app-mockup-prompts.md)：内置 image_gen 的实际提示词、修订及静态目视检查边界。
+7. [Java client 七项逻辑同步](03-architecture/client-app-java-compatibility.md)：2026-10-26 的水位线、空闲事件、拆包、TLS、并发与旧 ID 迁移实现及回归证据。
 
 原始概念样图（已由当前界面设计取代，历史依据见[初稿归档](99-archive/client-app-ui-initial.md)）：[已连接主页](02-design/assets/client-app-connected.png)、[首次连接配置](02-design/assets/client-app-connection-setup.png)。用户已确认 `airtable` 风格；图片为概念设计，包含虚构示例数据。
 

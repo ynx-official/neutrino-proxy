@@ -1,23 +1,24 @@
 use crate::{
+    channel::{IdleEvent, Outbound, Tunnel},
     config::{license_hint, validate, ClientConfig, Secrets},
-    protocol::{Codec, Frame},
+    protocol::Frame,
     transport,
 };
 use chrono::{DateTime, Utc};
-use futures_util::{SinkExt, StreamExt};
+use futures_util::StreamExt;
 use serde::Serialize;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
 use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
+    io::AsyncReadExt,
     net::TcpStream,
     sync::{mpsc, watch, Mutex as AsyncMutex},
     task::{JoinHandle, JoinSet},
     time::{timeout, Duration},
 };
-use tokio_util::{codec::Framed, sync::CancellationToken, task::TaskTracker};
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -182,13 +183,9 @@ impl Engine {
             let c = config.clone();
             let secret = secrets.clone();
             let roots =
-                tokio::task::spawn_blocking(move || transport::trust_roots(&c, &secret)).await;
+                tokio::task::spawn_blocking(move || transport::tls_config(&c, &secret)).await;
             match roots {
-                Ok(Ok(roots)) => Some(Arc::new(
-                    rustls::ClientConfig::builder()
-                        .with_root_certificates(roots)
-                        .with_no_client_auth(),
-                )),
+                Ok(Ok(config)) => Some(Arc::new(config)),
                 _ => {
                     self.status("error", "无法读取信任证书，请检查证书文件和证书库密码");
                     self.log("error", "SSL", "信任证书加载失败");
@@ -243,21 +240,29 @@ impl Engine {
         let stream = transport::open(config, tls.clone())
             .await
             .map_err(|e| (e, false))?;
-        let mut wire = Framed::new(stream, Codec);
+        let mut wire = Tunnel::new(stream, config, true, false);
         self.status("authenticating", "正在验证 License");
         wire.send(Frame::new(
             2,
             format!("{},{}", secrets.license, config.client_id),
             vec![],
         ))
-        .await
         .map_err(|_| ("发送认证请求失败".into(), false))?;
         let auth = timeout(Duration::from_secs(15), async {
             loop {
-                match wire.next().await {
-                    Some(Ok(frame)) if frame.kind == 2 => return Ok(frame),
-                    Some(Ok(_)) => {}
-                    _ => return Err(()),
+                tokio::select! {
+                    result = wire.writer.flush_one(), if wire.writer.pending() => {
+                        result.map_err(|_| ())?;
+                        wire.idle.written();
+                    },
+                    event = wire.idle.next() => match event {
+                        IdleEvent::Write => { if wire.writer.writable() { wire.send(Frame::new(1, "", vec![])).map_err(|_| ())?; } },
+                        _ => return Err(()),
+                    },
+                    frame = wire.reader.next() => match frame {
+                        Some(Ok(frame)) => { wire.idle.read(); if frame.kind == 2 { return Ok(frame); } },
+                        _ => return Err(()),
+                    }
                 }
             }
         })
@@ -291,26 +296,26 @@ impl Engine {
         let mut workers: JoinSet<(String, Result<(), String>)> = JoinSet::new();
         let mut bindings: HashMap<String, CancellationToken> = HashMap::new();
         let udp_pool = crate::udp::Pool::new(config);
-        let mut heartbeat =
-            tokio::time::interval(Duration::from_secs(config.heartbeat_seconds.max(1)));
-        heartbeat.tick().await;
-        let mut read_deadline = Box::pin(tokio::time::sleep(Duration::from_secs(
-            config.read_idle_seconds.max(1),
-        )));
         loop {
             tokio::select! {
                 _=cancel.cancelled()=>break,
-                _=&mut read_deadline,if config.read_idle_seconds>0=>return Err(("服务器响应超时".into(),false)),
-                _=heartbeat.tick(),if config.heartbeat_seconds>0=>{wire.send(Frame::new(1,"",vec![])).await.map_err(|_|("心跳发送失败".into(),false))?;},
-                Some(frame)=control_rx.recv()=>{wire.send(frame).await.map_err(|_|("控制通道写入失败".into(),false))?;},
+                event=wire.idle.next()=>match event {
+                    IdleEvent::Read=>return Err(("服务器响应超时".into(),false)),
+                    IdleEvent::All=>return Err(("控制通道读写空闲超时".into(),false)),
+                    IdleEvent::Write=>{if wire.writer.writable(){wire.send(Frame::new(1,"",vec![])).map_err(|e|(e,false))?;}},
+                },
+                result=wire.writer.flush_one(),if wire.writer.pending()=>{result.map_err(|_|("控制通道写入失败".into(),false))?;wire.idle.written();},
+                Some(frame)=control_rx.recv(),if wire.writer.writable()=>{wire.send(frame).map_err(|e|(e,false))?;},
                 Some(result)=workers.join_next(),if !workers.is_empty()=>{if let Ok((visitor,result))=result{bindings.remove(&visitor);if let Err(message)=result{self.log("warn","转发",&message);}}},
-                frame=wire.next()=>{
+                // Duplicate requests can produce immediate control replies too; they must
+                // respect the same queue budget as worker notifications and heartbeats.
+                frame=wire.reader.next(),if wire.writer.writable()=>{
                     let frame=match frame{Some(Ok(frame))=>frame,Some(Err(_))=>return Err(("隧道消息格式无效".into(),false)),None=>return Ok(())};
-                    read_deadline.as_mut().reset(tokio::time::Instant::now()+Duration::from_secs(config.read_idle_seconds.max(1)));
+                    wire.idle.read();
                     match frame.kind{
                         3=>{
                             let visitor=frame.info.clone();
-                            if bindings.contains_key(&visitor)||bindings.len()>=1024{let _=wire.send(Frame::new(4,visitor,vec![])).await;continue}
+                            if bindings.contains_key(&visitor){let _=wire.send(Frame::new(4,visitor,vec![]));continue}
                             let target=String::from_utf8(frame.data).map_err(|_|("目标地址格式无效".into(),false))?;
                             let token=cancel.child_token();bindings.insert(visitor.clone(),token.clone());
                             let cfg=config.clone();let license=secrets.license.clone();let tls=tls.clone();let tx=control_tx.clone();
@@ -321,7 +326,7 @@ impl Engine {
                         8=>{
                             let meta:crate::udp::Metadata=match serde_json::from_str(&frame.info){Ok(meta)=>meta,Err(_)=>{self.log("warn","UDP","UDP 元数据格式无效");continue}};
                             let visitor=format!("udp:{}",meta.visitor_id);
-                            if bindings.contains_key(&visitor)||bindings.len()>=1024{continue}
+                            if bindings.contains_key(&visitor){continue}
                             let token=cancel.child_token();bindings.insert(visitor.clone(),token.clone());
                             let cfg=config.clone();let license=secrets.license.clone();let tls=tls.clone();let pool=udp_pool.clone();let engine=self.clone();
                             workers.spawn(tracker.track_future(async move{let result=tokio::select!{_=token.cancelled()=>Ok(()),r=crate::udp::transfer(cfg,license,meta,tls,pool,engine)=>r};(visitor,result)}));
@@ -349,38 +354,43 @@ async fn tcp_transfer(
         .map_err(|_| "无法连接本地目标服务".to_owned())?;
     local.set_nodelay(true).ok();
     let tunnel = transport::open(config, tls).await?;
-    let mut wire = Framed::new(tunnel, Codec);
+    let mut wire = Tunnel::new(tunnel, config, false, true);
     wire.send(Frame::new(3, format!("{visitor}@{license}"), vec![]))
-        .await
         .map_err(|_| "绑定数据隧道失败".to_owned())?;
-    let (mut local_read, mut local_write) = local.into_split();
-    let (mut tunnel_write, mut tunnel_read) = wire.split();
-    // Independent pumps keep a slow direction from blocking progress in the other direction.
-    let upload = async {
-        let mut buffer = vec![0u8; 32 * 1024];
-        let mut heartbeat =
-            tokio::time::interval(Duration::from_secs(config.heartbeat_seconds.max(1)));
-        heartbeat.tick().await;
-        loop {
-            tokio::select! {
-                read=local_read.read(&mut buffer)=>{let n=read.map_err(|_|"读取本地目标失败".to_owned())?;if n==0{return Ok::<(),String>(())}tunnel_write.send(Frame::new(5,visitor,buffer[..n].to_vec())).await.map_err(|_|"数据隧道写入失败".to_owned())?;},
-                _=heartbeat.tick(),if config.heartbeat_seconds>0=>{tunnel_write.send(Frame::new(1,"",vec![])).await.map_err(|_|"数据隧道心跳失败".to_owned())?;}
+    let (mut local_read, local_write) = local.into_split();
+    let mut local_write = Outbound::new(local_write, config.water_marks());
+    let mut buffer = vec![0u8; 32 * 1024];
+    // Each direction keeps polling writes, idle events and its peer while backpressured.
+    // A high watermark pauses only that queue's source; draining below low resumes it.
+    loop {
+        tokio::select! {
+            event=wire.idle.next()=>match event {
+                IdleEvent::Read if wire.writer.writable()=>return Err("数据隧道读取空闲超时".into()),
+                IdleEvent::Write if wire.writer.writable()=>{wire.send(Frame::new(1,"",vec![]))?;},
+                _=>{}, // Java TCP/UDP handlers deliberately ignore ALL_IDLE.
+            },
+            result=wire.writer.flush_one(),if wire.writer.pending()=>{
+                result.map_err(|_|"数据隧道写入失败".to_owned())?;wire.idle.written();
+            },
+            result=local_write.flush_one(),if local_write.pending()=>{result.map_err(|_|"写入本地目标失败".to_owned())?;},
+            read=local_read.read(&mut buffer),if wire.writer.writable()=>{
+                let n=read.map_err(|_|"读取本地目标失败".to_owned())?;
+                if n==0{break}
+                wire.send(Frame::new(5,visitor,buffer[..n].to_vec()))?;
+            },
+            frame=wire.reader.next(),if local_write.writable()=>{
+                match frame {
+                    Some(Ok(frame))=>{wire.idle.read();match frame.kind{
+                        5=>local_write.push(frame.data),4=>break,_=>{}
+                    }},
+                    Some(Err(_))=>return Err("数据隧道消息格式无效".into()),
+                    None=>break,
+                }
             }
         }
-    };
-    let download = async {
-        while let Some(frame) = tunnel_read.next().await {
-            match frame {
-                Ok(frame) if frame.kind == 5 => local_write
-                    .write_all(&frame.data)
-                    .await
-                    .map_err(|_| "写入本地目标失败".to_owned())?,
-                Ok(frame) if frame.kind == 4 => break,
-                Ok(_) => {}
-                Err(_) => return Err("数据隧道消息格式无效".into()),
-            }
-        }
-        Ok::<(), String>(())
-    };
-    tokio::select! {result=upload=>result,result=download=>result}
+    }
+    // Like Java's writeAndFlush(...).CLOSE, finish queued tails before closing sockets.
+    // The owning worker's cancellation token still interrupts a stalled drain on disconnect.
+    let (tunnel, local) = tokio::join!(wire.writer.finish(), local_write.finish());
+    tunnel.and(local).map_err(|_| "关闭转发连接失败".to_owned())
 }

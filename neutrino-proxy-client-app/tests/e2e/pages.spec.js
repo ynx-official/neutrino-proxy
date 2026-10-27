@@ -65,7 +65,14 @@ async function bridge(page, connected = false) {
         invoke: async (command, args) => {
           if (command === "take_navigation") { const path = pendingRoute; pendingRoute = null; return path; }
           if (command === "get_snapshot") return structuredClone(snapshot);
+          if (command === "import_config") return structuredClone(window.__importFixture);
+          if (command === "apply_import") {
+            snapshot = { ...snapshot, config: { ...config, ...window.__importFixture.config }, revision: snapshot.revision + 1 };
+            listener(structuredClone(snapshot));
+            return structuredClone(snapshot);
+          }
           if (command === "save_config") {
+            window.__lastSaved = structuredClone(args.request);
             snapshot = {
               ...snapshot,
               config: args.request.config,
@@ -118,6 +125,35 @@ test("first run validates configuration and navigates after saving", async ({
   await expect(
     page.getByRole("heading", { name: "已连接", exact: true }),
   ).toBeVisible();
+});
+
+test("protocol import replaces confirmed dirty edits and survives the next save", async ({ page }) => {
+  await bridge(page, true);
+  await page.setViewportSize({ width: 860, height: 620 });
+  await page.goto("/#/settings");
+  await page.getByLabel("服务器地址", { exact: true }).fill("unsaved.example.test");
+  await page.evaluate(() => {
+    window.__importFixture = {
+      id: "protocol-import", canApply: true, notes: ["已读取同目录旧客户端 ID"],
+      config: { server: "imported.example.test", clientId: "legacy-identity", waterMark: "32KB/1MB",
+        allIdleSeconds: 60, maxFrameLength: 4194304, lengthFieldOffset: 2, lengthFieldLength: 2,
+        lengthAdjustment: 0, initialBytesToStrip: 0 },
+      importedFields: ["tunnel.server-ip", "tunnel.client-id", "protocol.water-mark", "protocol.all-idle-time-seconds",
+        "protocol.max-frame-length", "protocol.length-field-offset", "protocol.length-field-length",
+        "protocol.length-adjustment", "protocol.initial-bytes-to-strip"].map((key) => `neutrino.proxy.${key}`),
+    };
+  });
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "导入配置", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("32KB/1MB");
+  await page.screenshot({ path: "test-results/protocol-import.png", fullPage: true });
+  await page.getByRole("button", { name: "导入并保存" }).click();
+  await expect(page.getByLabel("服务器地址", { exact: true })).toHaveValue("imported.example.test");
+  await page.getByRole("button", { name: "仅保存，下次生效" }).click();
+  const saved = await page.evaluate(() => window.__lastSaved.config);
+  expect(saved).toMatchObject({ server: "imported.example.test", clientId: "legacy-identity",
+    waterMark: "32KB/1MB", allIdleSeconds: 60, maxFrameLength: 4194304,
+    lengthFieldOffset: 2, lengthFieldLength: 2, lengthAdjustment: 0, initialBytesToStrip: 0 });
 });
 
 test("tray navigation respects unsaved edits and opens logs when accepted", async ({ page }) => {

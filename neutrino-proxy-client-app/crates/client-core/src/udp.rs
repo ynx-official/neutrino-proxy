@@ -1,9 +1,10 @@
 use crate::{
+    channel::{IdleEvent, Tunnel},
     config::{udp_range, ClientConfig},
-    protocol::{Codec, Frame},
+    protocol::Frame,
     transport, Engine,
 };
-use futures_util::{SinkExt, StreamExt};
+use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeSet,
@@ -14,7 +15,6 @@ use tokio::{
     sync::OnceCell,
     time::{Duration, Instant},
 };
-use tokio_util::codec::Framed;
 
 #[derive(Clone, Default, Deserialize, Serialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -96,7 +96,7 @@ pub async fn transfer(
     engine: Engine,
 ) -> Result<(), String> {
     let stream = transport::open(&config, tls).await?;
-    let mut wire = Framed::new(stream, Codec);
+    let mut wire = Tunnel::new(stream, &config, false, false);
     let bind = Metadata {
         visitor_id: initial.visitor_id.clone(),
         server_port: initial.server_port,
@@ -109,7 +109,6 @@ pub async fn transfer(
         serde_json::to_string(&bind).unwrap(),
         license.into_bytes(),
     ))
-    .await
     .map_err(|_| "绑定 UDP 隧道失败".to_owned())?;
     let mut lease: Option<Lease> = None;
     let mut bound = Metadata::default();
@@ -117,22 +116,26 @@ pub async fn transfer(
     let mut warned = false;
     let mut buffer = vec![0u8; 65536];
     let mut deadline = Box::pin(tokio::time::sleep(Duration::from_secs(1)));
-    let mut heartbeat = tokio::time::interval(Duration::from_secs(config.heartbeat_seconds.max(1)));
-    heartbeat.tick().await;
     loop {
         tokio::select! {
             _=&mut deadline,if lease.is_some()=>break,
-            _=heartbeat.tick(),if config.heartbeat_seconds>0=>{wire.send(Frame::new(1,"",vec![])).await.map_err(|_|"UDP 隧道心跳失败".to_owned())?;},
-            packet=async{match &lease{Some(lease)=>lease.socket.recv_from(&mut buffer).await,None=>std::future::pending().await}}=>{
+            event=wire.idle.next()=>match event {
+                IdleEvent::Read if wire.writer.writable()=>return Err("UDP 隧道读取空闲超时".into()),
+                IdleEvent::Write if wire.writer.writable()=>{wire.send(Frame::new(1,"",vec![]))?;},
+                _=>{},
+            },
+            result=wire.writer.flush_one(),if wire.writer.pending()=>{result.map_err(|_|"UDP 隧道写入失败".to_owned())?;wire.idle.written();},
+            packet=async{match &lease{Some(lease)=>lease.socket.recv_from(&mut buffer).await,None=>std::future::pending().await}},if wire.writer.writable()=>{
                 let(size,_)=packet.map_err(|_|"读取 UDP 响应失败".to_owned())?;
                 let reply=Metadata{proxy_responses:0,proxy_timeout_ms:0,..bound.clone()};
-                wire.send(Frame::new(16,serde_json::to_string(&reply).unwrap(),buffer[..size].to_vec())).await.map_err(|_|"发送 UDP 响应失败".to_owned())?;
+                wire.send(Frame::new(16,serde_json::to_string(&reply).unwrap(),buffer[..size].to_vec())).map_err(|_|"发送 UDP 响应失败".to_owned())?;
                 responses+=1;
                 if bound.proxy_responses>0&&responses>=bound.proxy_responses{break}
                 deadline.as_mut().reset(Instant::now()+Duration::from_millis(bound.proxy_timeout_ms as u64));
             },
-            frame=wire.next()=>{
+            frame=wire.reader.next()=>{
                 let frame=match frame{Some(Ok(frame))=>frame,Some(Err(_))=>return Err("UDP 隧道消息格式无效".into()),None=>break};
+                wire.idle.read();
                 if frame.kind==4||frame.kind==9{break}
                 if frame.kind!=16{continue}
                 let meta:Metadata=serde_json::from_str(&frame.info).map_err(|_|"UDP 元数据格式无效".to_owned())?;
@@ -147,5 +150,48 @@ pub async fn transfer(
             }
         }
     }
+    // A response-count deadline can end a session immediately after enqueueing its last reply.
+    wire.writer
+        .finish()
+        .await
+        .map_err(|_| "关闭 UDP 隧道失败".to_owned())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocol::Codec;
+    use futures_util::StreamExt;
+    use tokio::{net::TcpListener, time::timeout};
+    use tokio_util::codec::Framed;
+
+    #[tokio::test]
+    async fn udp_tunnel_enforces_read_idle_without_a_response_lease() {
+        let server = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let config = ClientConfig {
+            server: "127.0.0.1".into(),
+            port: server.local_addr().unwrap().port(),
+            ssl: false,
+            read_idle_seconds: 1,
+            heartbeat_seconds: 0,
+            ..Default::default()
+        };
+        let pool = Pool::new(&config);
+        let worker = tokio::spawn(transfer(
+            config,
+            "test-license".into(),
+            Metadata::default(),
+            None,
+            pool,
+            Engine::new(),
+        ));
+        let mut wire = Framed::new(server.accept().await.unwrap().0, Codec);
+        assert_eq!(wire.next().await.unwrap().unwrap().kind, 8);
+        assert!(matches!(
+            timeout(Duration::from_millis(2200), wire.next()).await,
+            Ok(None)
+        ));
+        assert!(worker.await.unwrap().unwrap_err().contains("读取空闲超时"));
+    }
 }

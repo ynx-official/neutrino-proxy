@@ -17,6 +17,24 @@ pub trait AsyncStream: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T: AsyncRead + AsyncWrite + Unpin + Send> AsyncStream for T {}
 pub type Stream = Box<dyn AsyncStream>;
 pub fn trust_roots(config: &ClientConfig, secrets: &Secrets) -> Result<RootCertStore, String> {
+    let mut roots = RootCertStore::empty();
+    for cert in trust_certificates(config, secrets)? {
+        roots
+            .add(cert)
+            .map_err(|_| "信任证书格式或算法无效".to_owned())?;
+    }
+    Ok(roots)
+}
+pub(crate) fn tls_config(
+    config: &ClientConfig,
+    secrets: &Secrets,
+) -> Result<rustls::ClientConfig, String> {
+    crate::tls::config(trust_certificates(config, secrets)?)
+}
+fn trust_certificates(
+    config: &ClientConfig,
+    secrets: &Secrets,
+) -> Result<Vec<CertificateDer<'static>>, String> {
     let builtin = config.certificate_path.is_empty();
     let bytes = if builtin {
         include_bytes!("../resources/test.jks").to_vec()
@@ -55,16 +73,10 @@ pub fn trust_roots(config: &ClientConfig, secrets: &Secrets) -> Result<RootCertS
     } else {
         vec![CertificateDer::from(bytes)]
     };
-    let mut roots = RootCertStore::empty();
-    for cert in certs {
-        roots
-            .add(cert)
-            .map_err(|_| "信任证书格式或算法无效".to_owned())?;
-    }
-    if roots.is_empty() {
+    if certs.is_empty() {
         return Err("证书库没有可用的信任证书".into());
     }
-    Ok(roots)
+    Ok(certs)
 }
 pub async fn open(
     config: &ClientConfig,
@@ -87,7 +99,7 @@ pub async fn open(
         )
         .await
         .map_err(|_| "SSL 握手超时".to_owned())?
-        .map_err(|_| "无法验证服务器证书，请检查信任证书、有效期及服务器名称".to_owned())?;
+        .map_err(|_| "SSL 握手失败，请检查信任证书、有效期及签名算法".to_owned())?;
         Ok(Box::new(stream))
     } else {
         Ok(Box::new(socket))

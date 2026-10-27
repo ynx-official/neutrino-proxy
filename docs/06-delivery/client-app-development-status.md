@@ -1,11 +1,33 @@
 # 桌面客户端开发进展与验证记录
 
 状态：Review  
-最后更新：2026-10-16
+最后更新：2026-10-26
 
 关联文档：[总体方案](../00-project/client-app-proposal.md)、[界面设计](../02-design/client-app-ui.md)、[架构设计](../03-architecture/client-app-architecture.md)、[完整验收计划](../04-quality/client-app-acceptance.md)、[本地运行](../05-operations/client-app-local-development.md)
 
-## 2026-10-16 v2.0.6 正式发布（当前公开版本）
+## 2026-10-26 七项 Java 逻辑同步
+
+用户明确要求同步本轮审查列出的七项差异。现已补齐写缓冲水位线、TCP/UDP 读空闲、写空闲心跳、全空闲与自定义拆包、Java TLS 名称策略及内置 JKS、活动连接上限移除、同目录旧 clientId 迁移。配置从导入预览到保存和运行贯通；另修复已确认导入后旧设置草稿仍可能覆盖导入结果的问题。实现依据和边界见[七项同步说明](../03-architecture/client-app-java-compatibility.md)。
+
+本轮在 Windows 本机使用 loopback 对端和测试凭证验证，先复现新增字段丢失、数据通道无读超时、固定周期心跳、全空闲未生效、第 1025 个连接被拒绝、可信证书名称不符被拒绝、旧 ID 未迁移及表单导入覆盖等失败，再实现修复。
+
+| 检查 | 结果 |
+|---|---|
+| `cargo test --workspace --locked` | 59 项通过；包含内核 32 项及宿主 27 项。追加 64 MiB 慢接收测试确认背压、跨越两个读空闲周期仍不断开及恢复后数据完整 |
+| `cargo clippy --workspace --all-targets --locked -- -D warnings` | 通过，未屏蔽告警 |
+| `cargo fmt --all -- --check` | 通过；`git diff --check` 同时通过 |
+| `npm test` | 14 项通过 |
+| `npm run test:e2e` | 11 项通过，Edge；IPC 测试替身 |
+| Java `JavaProtocolVectors.java` | 实际编码、解码七组向量通过，Rust 固定向量验证通过 |
+| 前端生产构建 | Vite 构建通过 |
+| Windows Release App | `npm run desktop:build` 通过，最终源码构建退出码 0；产物 `neutrino-proxy-client-app/target/release/neutrino-proxy-client-app.exe`，未打安装包 |
+| 导入预览目视检查 | 已检查 860 × 620 截图，新增字段及确认按钮可读、无重叠 |
+
+内置公开示例 JKS 已分别完成 TLS 1.2 与 1.3 握手；未知根、非直接信任的过期证书、被篡改的握手签名均拒绝。TLS 边界及直接信任证书策略详见兼容文档，不能推断任意外部 Java PKI 组合均已验证。
+
+macOS 原生运行、生产服务互通、安装包及 72 小时负载未在本轮执行。没有提交、推送或发布。以下按日期保留历史记录，其中此前“自定义协议参数未支持”和“TLS 校验服务器名称”的现状描述已由本节及兼容文档替代。
+
+## 2026-10-16 v2.0.6 正式发布（历史记录）
 
 已按用户要求提交并推送源码 `4c47ea8ec6e45c81ffa908dba062a9f23b4952ad`，正式发布 [v2.0.6](https://github.com/ynx-official/neutrino-proxy/releases/tag/v2.0.6)，包含下方精简原生托盘与 `cargo run` 统一启动。本次以 `publish=true`、`skip_tests=true` 执行，[构建运行](https://github.com/ynx-official/neutrino-proxy/actions/runs/38863160071)全部 9 个作业成功；2026-10-16 14:57:28（Asia/Shanghai）公开为最新正式版本，`draft=false`、`prerelease=false`。
 

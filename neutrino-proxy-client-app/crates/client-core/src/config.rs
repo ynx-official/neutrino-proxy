@@ -13,6 +13,13 @@ pub struct ClientConfig {
     pub udp_port_range: String,
     pub read_idle_seconds: u64,
     pub heartbeat_seconds: u64,
+    pub all_idle_seconds: u64,
+    pub water_mark: String,
+    pub max_frame_length: usize,
+    pub length_field_offset: usize,
+    pub length_field_length: usize,
+    pub length_adjustment: i32,
+    pub initial_bytes_to_strip: usize,
     pub certificate_path: String,
 }
 impl Default for ClientConfig {
@@ -27,6 +34,13 @@ impl Default for ClientConfig {
             udp_port_range: "10000-10500".into(),
             read_idle_seconds: 120,
             heartbeat_seconds: 20,
+            all_idle_seconds: 0,
+            water_mark: String::new(),
+            max_frame_length: 2_097_152,
+            length_field_offset: 0,
+            length_field_length: 4,
+            length_adjustment: 0,
+            initial_bytes_to_strip: 0,
             certificate_path: String::new(),
         }
     }
@@ -56,6 +70,28 @@ pub fn validate(config: &ClientConfig, has_license: bool) -> BTreeMap<String, St
     if config.reconnect_seconds == 0 {
         errors.insert("reconnectSeconds".into(), "重连间隔至少为 1 秒".into());
     }
+    for (key, seconds) in [
+        ("reconnectSeconds", config.reconnect_seconds),
+        ("readIdleSeconds", config.read_idle_seconds),
+        ("heartbeatSeconds", config.heartbeat_seconds),
+        ("allIdleSeconds", config.all_idle_seconds),
+    ] {
+        if seconds > i32::MAX as u64 {
+            errors.insert(key.into(), "时间不能超过 Java 客户端的整数范围".into());
+        }
+    }
+    if !config.water_mark.trim().is_empty() && parse_water_mark(&config.water_mark).is_none() {
+        errors.insert(
+            "waterMark".into(),
+            "水位线格式应为低/高，例如 32KB/1MB，且低水位小于高水位".into(),
+        );
+    }
+    if !valid_framing(config) {
+        errors.insert(
+            "framing".into(),
+            "协议长度参数组合无效，请检查最大帧长、偏移、长度字段及剥离字节数".into(),
+        );
+    }
     if udp_range(&config.udp_port_range).is_none() {
         errors.insert(
             "udpPortRange".into(),
@@ -63,6 +99,65 @@ pub fn validate(config: &ClientConfig, has_license: bool) -> BTreeMap<String, St
         );
     }
     errors
+}
+
+pub fn valid_framing(config: &ClientConfig) -> bool {
+    config.max_frame_length > 0
+        && config.max_frame_length <= i32::MAX as usize
+        && matches!(config.length_field_length, 1 | 2 | 3 | 4 | 8)
+        && config
+            .length_field_offset
+            .checked_add(config.length_field_length)
+            .is_some_and(|end| end <= config.max_frame_length)
+        && config.initial_bytes_to_strip <= config.max_frame_length
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WaterMark {
+    pub low: usize,
+    pub high: usize,
+}
+impl Default for WaterMark {
+    fn default() -> Self {
+        Self {
+            low: 32 * 1024,
+            high: 64 * 1024,
+        }
+    }
+}
+impl ClientConfig {
+    pub fn water_marks(&self) -> WaterMark {
+        parse_water_mark(&self.water_mark).unwrap_or_default()
+    }
+}
+
+/// Java's B/K/KB/M/MB/G/GB syntax, without its narrowing integer overflow.
+pub fn parse_water_mark(value: &str) -> Option<WaterMark> {
+    fn bytes(value: &str) -> Option<usize> {
+        let text = value.trim().to_ascii_uppercase();
+        let split = text.find(|c: char| c.is_ascii_alphabetic())?;
+        let number = text[..split].trim();
+        if !number.starts_with(|c: char| c.is_ascii_digit())
+            || !number.chars().all(|c| c.is_ascii_digit() || c == '.')
+        {
+            return None;
+        }
+        let factor = match text[split..].trim() {
+            "B" => 1.0,
+            "K" | "KB" => 1024.0,
+            "M" | "MB" => 1048576.0,
+            "G" | "GB" => 1073741824.0,
+            _ => return None,
+        };
+        let size = number.parse::<f64>().ok()? * factor;
+        (size.is_finite() && size >= 0.0 && size <= i32::MAX as f64).then_some(size as usize)
+    }
+    let (low, high) = value.split_once('/')?;
+    let mark = WaterMark {
+        low: bytes(low)?,
+        high: bytes(high)?,
+    };
+    (mark.low < mark.high).then_some(mark)
 }
 pub fn udp_range(value: &str) -> Option<(u16, u16)> {
     let (a, b) = value.split_once('-')?;

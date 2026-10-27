@@ -1,7 +1,7 @@
 # 桌面客户端本地开发与运行
 
 状态：Review  
-最后更新：2026-10-16
+最后更新：2026-10-26
 
 关联文档：[开发进展](../06-delivery/client-app-development-status.md)、[实施计划](../06-delivery/client-app-implementation-plan.md)、[界面设计](../02-design/client-app-ui.md)
 
@@ -68,9 +68,11 @@ npm run test:e2e
 
 普通配置写入 Tauri 的应用配置目录；Windows 通常为 `%APPDATA%/fun.neutrino.proxy.desktop/config.json`。License 与 JKS 密码写入系统安全存储，JSON 中只有凭证引用。系统安全存储失败时，保存操作返回错误，不降级为明文保存。
 
-导入 YAML 会先显示脱敏预览，用户确认后才保存且不会自动连接。旧官方 `neutrino.proxy.client` 与新版 `neutrino.proxy.tunnel` 均可导入，兼容嵌套及点分键。预览只显示本次文件实际读取的字段，不把本机保留值显示为已导入。只将有效且支持的字段合并到现有配置；缺少 `neutrino.proxy.tunnel` 等分组、字段为空或无效时跳过，已有地址和 License 等值保留。首次使用可先导入部分字段，之后在设置中补齐必填信息再连接。无可用字段仅提示“未发现可导入的配置”，不报缺失分组错误。自定义协议帧参数、水位线或全空闲超时等暂不支持项列为已跳过，其他字段继续导入；这不代表全部旧配置已兼容。格式无效、文件不可读和超过 1 MiB 仍返回错误。
+导入 YAML 会先显示脱敏预览，用户确认后才保存且不会自动连接。旧官方 `neutrino.proxy.client` 与新版 `neutrino.proxy.tunnel` 均可导入，兼容嵌套及点分键。预览只显示本次实际读取的字段，不把本机保留值显示为已导入。有效字段合并到现有配置；缺少分组、字段为空或无效时跳过，已有值与凭证保留。首次使用可先导入部分字段，之后补齐必填信息再连接。无可用字段仅提示“未发现可导入的配置”。格式无效、文件不可读和超过 1 MiB 仍返回错误。
 
-SSL 会校验证书链、有效期与服务器名称。旧 Java 客户端未显式启用名称验证，部分旧证书可能无法直接使用；当前不提供忽略证书错误的开关，兼容差异仍需专项验证。
+2026-10-26 已支持导入 `protocol.water-mark`、`all-idle-time-seconds`、`max-frame-length`、`length-field-offset`、`length-field-length`、`length-adjustment`、`initial-bytes-to-strip`。这些参数在预览中展示、保存后用于下一次连接；修改时重新导入相应 YAML 即可。空闲时间 0 或负数表示禁用。无效拆包组合整体保留原值，其他有效字段仍可导入。若没有显式 client-id，会读取所选 YAML 同目录的 `.NEUTRINO_PROXY_CLIENT_ID` 并在预览说明来源；不会修改旧文件。
+
+SSL 按用户本次要求与 Java 对齐，不做主机名校验；仍验证信任和握手签名，失败不降级明文。信任库中完全相同的证书直接信任，否则验证签发链、用途和有效期；内置 JKS 支持 TLS 1.2/1.3。证书算法范围和精确行为见[七项同步说明](../03-architecture/client-app-java-compatibility.md)，不提供接受任意证书的开关。
 
 ## 图标资源维护
 
