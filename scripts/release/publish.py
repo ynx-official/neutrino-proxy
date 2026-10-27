@@ -100,14 +100,12 @@ def publish(repository, tag, commit, output, api):
     marker = f"<!-- neutrino-release:{commit} -->"
     body = (f"{marker}\nRelease {tag} · commit `{commit}`\n\n"
             "Includes server and command-line client JAR distributions (Java 21), Linux/Windows native "
-            "distributions, fully static Linux x64 musl server/client packages, Windows desktop installer and "
-            "portable app, and Intel/Apple Silicon macOS DMGs.\n\n"
+            "distributions and fully static Linux x64 musl server/client packages. "
+            "The desktop app is maintained and released separately at "
+            "https://github.com/ynx-official/neutrino-proxy-client-desktop.\n\n"
             "For legacy glibc hosts, choose `linux-x64-musl-static.zip`; the ordinary `linux-x64-native.zip` "
             "is dynamically linked and built on Ubuntu 22.04. Static ELF inspection is required for publication. "
             "CentOS 7 userspace results and unverified Linux 3.10 kernel status are recorded in the manifest.\n\n"
-            "Desktop apps have no developer certificate or notarization. macOS uses local ad-hoc signing only; "
-            "Windows SmartScreen / macOS Gatekeeper may prompt or block launch. The Windows portable app "
-            "requires WebView2. Tunnel SSL configuration is independent of app code signing.\n\n"
             "Verify downloads using `SHA256SUMS`; build provenance and tool versions are in `release-manifest.json`.\n")
     manifest = json.loads((output / "release-manifest.json").read_text(encoding="utf-8"))
     if manifest.get("tests_skipped") is True:

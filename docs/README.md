@@ -1,35 +1,30 @@
 # 项目文档索引
 
-状态：Review  
+状态：Review
 最后更新：2026-10-27
 
 关联文档：[仓库说明](../README.md)、[协作约定](../AGENTS.md)
 
-## 桌面客户端方案
+## 当前项目
 
-本组文档包含新增 `neutrino-proxy-client-app` 的设计基线、当前实现及验证记录。技术路线与本机连接工具的范围已确认；设计文档中的完整目标、安全策略和验收预算仍按各文档标注审阅，不能把实现部分功能视为全部验收通过。
+本仓库维护服务端、Java 命令行客户端、core 和管理后台。桌面 Rust/Tauri 项目已于 2026-10-27 完整移入独立仓库，不再从本仓库构建或发布。
 
-2026-10-15 已按用户新指令进入实现。当前已完成项及运行证据见[开发进展](06-delivery/client-app-development-status.md)，启动方式见[本地开发与运行](05-operations/client-app-local-development.md)。下列设计文档仍包含完整迁移目标，不能视为全部已实现。
+- [服务端/命令行客户端发布](06-delivery/release-pipeline.md)：八份分发包、Java/管理后台构建、版本与完整性校验。
+- [Linux 原生包兼容性](05-operations/linux-native-compatibility.md)：glibc 和 musl 包选择、全静态门禁、CentOS 7 和内核验收边界。
+- [历史统一发版记录](99-archive/unified-release-pipeline.md)：拆分前连同桌面 App 发布的授权、产物和证据。
 
-1. [总体方案与改动规模](00-project/client-app-proposal.md)：目标、范围、已确认决策、工作量和风险。
-2. [当前界面与交互](02-design/client-app-ui.md)：已确认的简约样图、顶部导航、三页交互、精简系统原生托盘菜单与[已确认预览](02-design/assets/client-app-native-tray-approved.png)、项目 Logo 桌面适配及实际运行截图；历史色块与托盘浮层方案保留追溯。
-3. [架构与兼容性设计](03-architecture/client-app-architecture.md)：Rust 内核、协议、配置迁移、后台运行及权限边界；含 2026-10-16 缺失 / 无效字段跳过、旧官方 client 分组兼容与实际读取字段预览规则。
-4. [验收与验证方案](04-quality/client-app-acceptance.md)：功能、兼容性、长期运行和平台测试，含原生图标菜单与 `cargo run` 一起启动前端的验收；操作说明见[本地开发](05-operations/client-app-local-development.md)。
-5. [分阶段实施计划](06-delivery/client-app-implementation-plan.md)：各阶段产物、依赖和完成条件。
-6. [样图生成记录](02-design/client-app-mockup-prompts.md)：内置 image_gen 的实际提示词、修订及静态目视检查边界。
-7. [Java client 七项逻辑同步](03-architecture/client-app-java-compatibility.md)：2026-10-26 的水位线、空闲事件、拆包、TLS、并发与旧 ID 迁移实现及回归证据。
-8. [应用设置与启动行为](03-architecture/client-app-architecture.md#应用偏好与进程启动2026-10-27)：开机自启、启动单次自动连接、偏好持久化及失败处理；[已确认样图](02-design/assets/client-app-application-settings-approved.png)、[实际界面](02-design/client-app-ui.md#设置与日志)、[操作说明](05-operations/client-app-local-development.md)和[验收场景 U28–U34](04-quality/client-app-acceptance.md)。
+## 独立桌面客户端
 
-原始概念样图（已由当前界面设计取代，历史依据见[初稿归档](99-archive/client-app-ui-initial.md)）：[已连接主页](02-design/assets/client-app-connected.png)、[首次连接配置](02-design/assets/client-app-connection-setup.png)。用户已确认 `airtable` 风格；图片为概念设计，包含虚构示例数据。
+- [仓库及 README](https://github.com/ynx-official/neutrino-proxy-client-desktop)
+- [桌面文档索引](https://github.com/ynx-official/neutrino-proxy-client-desktop/blob/main/docs/README.md)
+- [拆分记录](https://github.com/ynx-official/neutrino-proxy-client-desktop/blob/main/docs/06-delivery/project-extraction.md)
+- [独立发布规则](https://github.com/ynx-official/neutrino-proxy-client-desktop/blob/main/docs/06-delivery/releasing.md)
 
-## 发版与分发
-
-- [Linux 原生包兼容性](05-operations/linux-native-compatibility.md)：CentOS 7 / glibc 2.17 的包选择、musl 全静态构建、强制 ELF 检查与内核 3.10 实机验收边界。
-- [统一发版构建流](06-delivery/release-pipeline.md)：`v*` tag 自动构建服务端、命令行客户端和桌面 App，产物齐备后自动公开正式 Release；无需配置 App 签名证书。含历史版本及当前 `v2.0.6` 正式发布记录，本次按用户要求跳过测试，全部 9 个作业成功，12 个附件和哈希核验通过。
+原桌面方案、架构、协议兼容矩阵、已确认样图及运行截图均随项目迁入，旧 Flutter 内容已替换。两个仓库独立版本和 tag，本次未提交、推送或发布。
 
 ## 既有资料
 
-以下保留既有路径和内容；本次未对其时效性逐项审查。
+以下保留原路径，本轮未逐项审查其时效性。
 
 - [快速使用](快速使用.MD)
 - [管理后台使用指南](管理后台使用指南.MD)
@@ -37,4 +32,3 @@
 - [开发问题汇总](开发问题汇总.MD)
 - [如何贡献](如何贡献.MD)
 - [Channel](Channel.MD)、[Bean](Bean.MD)、[AOP](Aop.MD)
-

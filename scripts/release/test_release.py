@@ -31,30 +31,15 @@ class ReleaseTests(unittest.TestCase):
             with self.subTest(tag=tag), self.assertRaises(ValueError):
                 release.parse_version(tag)
 
-    def test_prepare_keeps_npm_cargo_tauri_and_java_versions_consistent(self):
-        for name in ("pom.xml", "neutrino-proxy-client-app/package.json",
-                     "neutrino-proxy-client-app/package-lock.json",
-                     "neutrino-proxy-client-app/Cargo.lock",
-                     "neutrino-proxy-client-app/src-tauri/Cargo.toml",
-                     "neutrino-proxy-client-app/crates/client-core/Cargo.toml",
-                     "neutrino-proxy-client-app/src-tauri/tauri.conf.json",
+    def test_prepare_updates_java_without_a_desktop_checkout(self):
+        for name in ("pom.xml",
                      "neutrino-proxy-server/src/main/resources/app.yml",
                      "neutrino-proxy-client/src/main/resources/app.yml"):
             dest = self.root / name
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(REPO / name, dest)
         release.prepare_versions(self.root, "2.1.0")
-        app = self.root / "neutrino-proxy-client-app"
-        self.assertEqual(json.loads((app / "package.json").read_text())["version"], "2.1.0")
-        lock = json.loads((app / "package-lock.json").read_text())
-        self.assertEqual(lock["version"], "2.1.0")
-        self.assertEqual(lock["packages"][""]["version"], "2.1.0")
-        self.assertEqual(json.loads((app / "src-tauri/tauri.conf.json").read_text())["version"], "2.1.0")
-        import tomllib
-        cargo = tomllib.loads((app / "Cargo.lock").read_text())
-        for package in cargo["package"]:
-            if package["name"] in ("neutrino-client-core", "neutrino-proxy-client-app"):
-                self.assertEqual(package["version"], "2.1.0")
+        self.assertFalse((self.root / "neutrino-proxy-client-app").exists())
         self.assertIn("<revision>2.1.0</revision>", (self.root / "pom.xml").read_text(encoding="utf-8"))
         self.assertIn("version: 2.1.0", (self.root / "neutrino-proxy-server/src/main/resources/app.yml").read_text(encoding="utf-8"))
 
@@ -118,17 +103,6 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             release.package_java(self.root, self.out, "server", "native", "linux-x64", "2.1.0")
 
-    def test_desktop_installer_and_portable_are_distinct_required_assets(self):
-        build = self.root / "neutrino-proxy-client-app/target/x86_64-pc-windows-msvc/release"
-        (build / "bundle/nsis").mkdir(parents=True)
-        (build / "bundle/nsis/setup.exe").write_bytes(b"installer")
-        (build / "neutrino-proxy-client-app.exe").write_bytes(b"app")
-        (self.root / "LICENSE").write_text("MIT", encoding="utf-8")
-        release.package_desktop(self.root, self.out, "windows-x64", "x86_64-pc-windows-msvc", "2.1.0")
-        self.assertEqual((self.out / "neutrino-proxy-client-app-2.1.0-windows-x64-setup.exe").read_bytes(), b"installer")
-        with zipfile.ZipFile(self.out / "neutrino-proxy-client-app-2.1.0-windows-x64-portable.zip") as bundle:
-            self.assertEqual(bundle.read("neutrino-proxy-client-app-2.1.0-windows-x64/neutrino-proxy-client-app.exe"), b"app")
-
     def test_musl_archive_has_an_explicit_name_and_unix_launcher(self):
         archive = self.make_java(kind="native", platform="linux-x64-musl-static")
         self.assertEqual(archive.name, "neutrino-proxy-client-2.1.0-linux-x64-musl-static.zip")
@@ -137,10 +111,12 @@ class ReleaseTests(unittest.TestCase):
             self.assertIn(home + "/start.sh", bundle.namelist())
             self.assertNotIn(home + "/start.cmd", bundle.namelist())
 
-    def test_manifest_requires_all_twelve_assets_and_hashes_file_contents(self):
+    def test_manifest_requires_all_eight_java_assets_and_hashes_file_contents(self):
         self.out.mkdir()
         expected = release.expected_assets("2.1.0")
-        self.assertEqual(len(expected), 12)
+        self.assertEqual(len(expected), 8)
+        self.assertTrue(all(name.startswith(("neutrino-proxy-server-", "neutrino-proxy-client-")) for name in expected))
+        self.assertFalse(any("client-app" in name or "desktop" in name for name in expected))
         for name in expected[:-1]:
             (self.out / name).write_bytes(b"package")
         with self.assertRaises(ValueError):
@@ -152,8 +128,8 @@ class ReleaseTests(unittest.TestCase):
         self.static_report()
         release.assemble(self.out, "2.1.0", "a" * 40, "https://example.invalid/run")
         manifest = json.loads((self.out / "release-manifest.json").read_text())
-        self.assertEqual(len(manifest["assets"]), 12)
-        self.assertEqual(manifest["desktop_signing"], "unsigned-no-notarization")
+        self.assertEqual(len(manifest["assets"]), 8)
+        self.assertNotIn("desktop_signing", manifest)
         self.assertEqual(manifest["assets"][0]["sha256"], __import__("hashlib").sha256(b"package").hexdigest())
         self.assertIn("release-manifest.json", (self.out / "SHA256SUMS").read_text())
         (self.out / "unexpected.zip").write_bytes(b"extra")

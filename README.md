@@ -14,7 +14,7 @@
 
 # 1、简介
 
-桌面客户端正在独立目录 `neutrino-proxy-client-app/` 中重写，采用 Rust + Tokio、Tauri 2、Vue 3。开发构建与启动方式见[桌面客户端本地运行](docs/05-operations/client-app-local-development.md)，实现范围及验证记录见[桌面客户端开发进展](docs/06-delivery/client-app-development-status.md)。
+桌面客户端已迁至独立仓库 [Neutrino Proxy Desktop](https://github.com/ynx-official/neutrino-proxy-client-desktop)，采用 Rust + Tokio、Tauri 2、Vue 3。下载、开发和发布说明见其 README；本仓库维护服务端、Java 命令行客户端及管理后台，两边独立构建和发布。
 
 - 中微子代理（neutrino-proxy）是一个基于netty的、开源的java内网穿透项目。
 - 技术栈：Solon、MybatisPlus、Netty

@@ -63,7 +63,7 @@ class PublishTests(unittest.TestCase):
         api = FakeAPI()
         publish("test/repo", "v2.1.0", "a" * 40, self.output, api)
         uploads = [call for call in api.calls if call[1].startswith("https://uploads.github.com/")]
-        self.assertEqual(len(uploads), 14)
+        self.assertEqual(len(uploads), 10)
         self.assertEqual(api.calls[-1][0], "PATCH")
         self.assertFalse(api.calls[-1][2]["draft"])
         self.assertFalse(api.calls[-1][2]["prerelease"])

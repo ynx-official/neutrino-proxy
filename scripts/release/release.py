@@ -54,19 +54,6 @@ def prepare_versions(root, version):
     replace_once(root / "neutrino-proxy-server/src/main/resources/app.yml",
                  r'^(solon\.staticfiles\.mappings:\n)  - path: "/"\n    repository: [^\n]+',
                  r'\1  - path: "/"\n    repository: "classpath:static/"')
-    app = root / "neutrino-proxy-client-app"
-    for name in ("package.json", "package-lock.json", "src-tauri/tauri.conf.json"):
-        path = app / name
-        content = json.loads(path.read_text(encoding="utf-8"))
-        content["version"] = version
-        if name == "package-lock.json":
-            content["packages"][""]["version"] = version
-        write_json(path, content)
-    for name in ("src-tauri/Cargo.toml", "crates/client-core/Cargo.toml"):
-        replace_once(app / name, r'^version = "[^"]+"$', f'version = "{version}"')
-    for name in ("neutrino-proxy-client-app", "neutrino-client-core"):
-        replace_once(app / "Cargo.lock", rf'(name = "{name}"\nversion = ")[^"]+("\n)',
-                     rf'\g<1>{version}\2')
 
 
 def require_file(path):
@@ -129,31 +116,6 @@ def package_java(root, output, module, kind, platform, version):
         return zip_directory(directory, output / (layout + ".zip"))
 
 
-def single_match(directory, pattern):
-    files = list(directory.glob(pattern))
-    if len(files) != 1:
-        raise ValueError(f"Expected exactly one {pattern} in {directory}, found {len(files)}")
-    return require_file(files[0])
-
-
-def package_desktop(root, output, platform, target, version):
-    parse_version("v" + version)
-    build = root / "neutrino-proxy-client-app/target" / target / "release"
-    output.mkdir(parents=True, exist_ok=True)
-    prefix = f"neutrino-proxy-client-app-{version}-{platform}"
-    if platform == "windows-x64":
-        installer = single_match(build / "bundle/nsis", "*.exe")
-        shutil.copy2(installer, output / (prefix + "-setup.exe"))
-        with tempfile.TemporaryDirectory() as temp:
-            directory = Path(temp) / prefix
-            directory.mkdir()
-            shutil.copy2(require_file(build / "neutrino-proxy-client-app.exe"), directory)
-            shutil.copy2(require_file(root / "LICENSE"), directory)
-            zip_directory(directory, output / (prefix + "-portable.zip"))
-    else:
-        shutil.copy2(single_match(build / "bundle/dmg", "*.dmg"), output / (prefix + ".dmg"))
-
-
 def unpack_bundle(archive, destination):
     """Restore executable bits explicitly, since Python zip extraction drops them."""
     destination = destination.resolve()
@@ -175,9 +137,7 @@ def expected_assets(version):
     files += [f"neutrino-proxy-{module}-{version}-{platform}-native.zip"
               for platform in ("linux-x64", "windows-x64") for module in ("server", "client")]
     files += [f"neutrino-proxy-{module}-{version}-linux-x64-musl-static.zip" for module in ("server", "client")]
-    prefix = f"neutrino-proxy-client-app-{version}"
-    return files + [prefix + "-windows-x64-setup.exe", prefix + "-windows-x64-portable.zip",
-                    prefix + "-macos-x64.dmg", prefix + "-macos-arm64.dmg"]
+    return files
 
 
 def java_distribution_suffix(kind, platform):
@@ -213,7 +173,7 @@ def validate_linux_static(output, version, tests_skipped=False, report=None, req
 def record_build(output, label):
     versions = {}
     for tool, args in (("java", ["-version"]), ("mvn", ["--version"]), ("node", ["--version"]),
-                       ("npm", ["--version"]), ("rustc", ["--version"]), ("cargo", ["--version"]),
+                       ("npm", ["--version"]),
                        ("readelf", ["--version"]), ("x86_64-linux-musl-gcc", ["--version"])):
         executable = shutil.which(tool)
         if executable:
@@ -240,7 +200,7 @@ def assemble(output, version, commit, run_url):
         "version": version, "tag": "v" + version, "commit": commit, "workflow_run": run_url,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "tests_skipped": tests_skipped, "linux_compatibility": compatibility,
-        "desktop_signing": "unsigned-no-notarization", "builds": builds, "assets": assets,
+        "builds": builds, "assets": assets,
     })
     names = sorted(expected | {"release-manifest.json"})
     (output / "SHA256SUMS").write_text("".join(
@@ -250,14 +210,13 @@ def assemble(output, version, commit, run_url):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("prepare", "java", "desktop", "assemble", "record"))
+    parser.add_argument("command", choices=("prepare", "java", "assemble", "record"))
     parser.add_argument("--tag", required=True)
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--output", type=Path, default=ROOT / "release-assets")
     parser.add_argument("--module", choices=("server", "client"))
     parser.add_argument("--kind", choices=("jar", "native"))
-    parser.add_argument("--platform", choices=("any", "linux-x64", "linux-x64-musl-static", "windows-x64", "macos-x64", "macos-arm64"))
-    parser.add_argument("--target")
+    parser.add_argument("--platform", choices=("any", "linux-x64", "linux-x64-musl-static", "windows-x64"))
     parser.add_argument("--label")
     parser.add_argument("--commit")
     parser.add_argument("--run-url", default="")
@@ -269,10 +228,6 @@ def main():
         if not args.module or not args.kind or (args.kind == "native" and args.platform not in ("linux-x64", "linux-x64-musl-static", "windows-x64")):
             parser.error("java requires --module, --kind and (for native) --platform")
         print(package_java(args.root, args.output, args.module, args.kind, args.platform, version))
-    elif args.command == "desktop":
-        if args.platform not in ("windows-x64", "macos-x64", "macos-arm64") or not args.target:
-            parser.error("desktop requires --platform and --target")
-        package_desktop(args.root, args.output, args.platform, args.target, version)
     elif args.command == "record":
         if not args.label or not re.fullmatch(r"[a-z0-9-]+", args.label):
             parser.error("record requires an alphanumeric --label")

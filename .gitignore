@@ -35,7 +35,6 @@ hs_err_pid*
 
 # 前端
 **/package-lock.json
-!neutrino-proxy-client-app/package-lock.json
 !neutrino-proxy-admin/package-lock.json
 **/yarn.lock
 
@@ -64,11 +63,6 @@ data
 **/cert/**
 neutrino-proxy-server/src/main/resources/static/**
 rebel.xml
-
-# Desktop client local verification artifacts
-neutrino-proxy-client-app/test-results/
-neutrino-proxy-client-app/playwright-report/
-neutrino-proxy-client-app/.local-test/
 
 # Release tooling outputs
 release-assets/

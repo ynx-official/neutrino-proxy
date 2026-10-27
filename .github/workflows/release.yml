@@ -185,93 +185,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  desktop:
-    needs: prepare
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: windows-2022
-            platform: windows-x64
-            target: x86_64-pc-windows-msvc
-            bundles: nsis
-          - runner: macos-15-intel
-            platform: macos-x64
-            target: x86_64-apple-darwin
-            bundles: dmg
-          - runner: macos-15
-            platform: macos-arm64
-            target: aarch64-apple-darwin
-            bundles: dmg
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 60
-    env:
-      RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-      BUILD_PLATFORM: ${{ matrix.platform }}
-      BUILD_TARGET: ${{ matrix.target }}
-      BUILD_BUNDLES: ${{ matrix.bundles }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.prepare.outputs.commit }}
-          persist-credentials: false
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: neutrino-proxy-client-app/package-lock.json
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-          targets: ${{ matrix.target }}
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ matrix.platform }}-release-cargo-${{ hashFiles('neutrino-proxy-client-app/Cargo.lock') }}
-          restore-keys: ${{ matrix.platform }}-release-cargo-
-      - name: Inject release version
-        run: python scripts/release/release.py prepare --tag "$RELEASE_TAG"
-      - name: Install desktop build dependencies
-        working-directory: neutrino-proxy-client-app
-        run: npm ci
-      - name: Check Rust formatting and lint
-        working-directory: neutrino-proxy-client-app
-        run: |
-          cargo fmt --all --check
-          cargo clippy --workspace --all-targets --locked -- -D warnings
-      - name: Test desktop frontend and Rust code
-        if: env.SKIP_TESTS != 'true'
-        working-directory: neutrino-proxy-client-app
-        run: |
-          npm test
-          cargo test --workspace --locked
-      - name: Browser regression checks
-        if: runner.os == 'Windows' && env.SKIP_TESTS != 'true'
-        working-directory: neutrino-proxy-client-app
-        run: npm run test:e2e
-      - name: Generate platform icons and build unsigned installer
-        working-directory: neutrino-proxy-client-app
-        run: |
-          npm run tauri -- icon src-tauri/icons/app-icon.png --output target/release-icons
-          npm run desktop:bundle -- --target "$BUILD_TARGET" --bundles "$BUILD_BUNDLES" -- --locked
-      - name: Package desktop outputs
-        run: |
-          python scripts/release/release.py desktop --tag "$RELEASE_TAG" --platform "$BUILD_PLATFORM" --target "$BUILD_TARGET"
-          python scripts/release/release.py record --tag "$RELEASE_TAG" --label "desktop-$BUILD_PLATFORM"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: release-desktop-${{ matrix.platform }}
-          path: release-assets/
-          if-no-files-found: error
-          retention-days: 7
-
   publish:
-    needs: [prepare, java, desktop]
+    needs: [prepare, java]
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -292,20 +207,13 @@ jobs:
           pattern: release-java-*
           path: release-assets
           merge-multiple: true
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: release-desktop-*
-          path: release-assets
-          merge-multiple: true
-      - name: Validate all twelve outputs and generate checksums
+      - name: Validate all eight Java outputs and generate checksums
         run: python scripts/release/release.py assemble --tag "$RELEASE_TAG" --commit "$RELEASE_COMMIT" --run-url "$RUN_URL"
       - uses: actions/upload-artifact@v4
         with:
           name: release-complete
           path: |
             release-assets/*.zip
-            release-assets/*.exe
-            release-assets/*.dmg
             release-assets/SHA256SUMS
             release-assets/release-manifest.json
           if-no-files-found: error
