@@ -110,7 +110,7 @@ gh workflow run docs-deploy.yml --repo ynx-official/neutrino-proxy --ref <approv
 - Pages 使用 `build_type=workflow`，绑定 `neutrino-proxy-docs.mrsunshine.cn`；`github-pages` 环境保留 `master` 并新增精确的 `dev` 分支许可。
 - 公共 DNS 经 Google 与 Cloudflare 解析确认 CNAME 为 `ynx-official.github.io`。DNS 由用户配置；证书状态已为 `approved`，`https_enforced=true`。实际 HTTPS 首页返回 200，浏览器验证 TLS 1.3 与域名匹配；HTTP 文档 URL 返回 301，跳转到相同 HTTPS 路径。
 - [首次发布运行](https://github.com/ynx-official/neutrino-proxy/actions/runs/40835529251) 构建与部署均成功，发布提交为 `37ef4e67901fabbe0cee83135f572b0aa5e3d46a`。
-- [完整发布与线上验收](https://github.com/ynx-official/neutrino-proxy/actions/runs/40837776895) 的 `build`、`deploy`、`verify-live` 全部成功。当前发布提交为 `7672a3a7794dba7da78c5c34c78b183f8d4a303b`，实际 HTTPS 站点的 42 项 Chromium 用例全部通过，覆盖 37 页、无尾斜杠入口、标题书签、搜索、代码复制、图片放大、主题及移动端。额外检查线上清单、两类真实 404、HTTP 301/308 到 HTTPS 的同路径/同查询参数跳转通过。
+- [完整发布与线上验收](https://github.com/ynx-official/neutrino-proxy/actions/runs/40837776895) 的 `build`、`deploy`、`verify-live` 全部成功。当前发布提交为 `7672a3a7794dba7da78c5c34c78b183f8d4a303b`，实际 HTTPS 站点的 42 项 Chromium 用例最终通过：41 项首次通过，`/pages/eebea1/` 的搜索弹层等待首次超时，按既有 CI 重试配置重试后通过，日志标记为 1 flaky；不能将其描述为全部首次通过。检查覆盖 37 页、无尾斜杠入口、标题书签、搜索、代码复制、图片放大、主题及移动端。额外检查线上清单、两类真实 404、HTTP 301/308 到 HTTPS 的同路径/同查询参数跳转通过。
 - [文档 CI](https://github.com/ynx-official/neutrino-proxy/actions/runs/40837749117) 根路径与子路径任务全部通过，包括根路径 Nginx 验证。
 - 以新域名、根路径执行 `npm run check`：11 项测试、37 页、2,190 条链接/资源检查通过；`npm run test:e2e`：42 项 Chromium 测试通过。工作流 YAML、默认发布参数与产物 `CNAME` / `site-manifest.json` 均已检查。
 - 本机公网完整测试遇到连接关闭、TLS 重置和导航超时，未记为通过；本机已确认 HTTPS 首页、线上清单与两类真实 404。上述完整线上验收以 GitHub runner 的实际成功结果为依据，没有跳过用例、放宽断言或禁用证书验证。
