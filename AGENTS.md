@@ -22,3 +22,13 @@
 - 手动 Release 可选已有 tag，默认仅构建；publish 和 skip_tests 仅在当次明确选择时生效。构建、全静态 ELF、产物齐备与哈希检查不跳过。
 - 历史 v2.0.3–v2.0.7 发布授权与记录保留在 `docs/99-archive/unified-release-pipeline.md`；按次授权不延伸为后续提交、tag 或发布权限。
 - 不自动提交、推送、创建 PR/tag、切换或删除分支、发布或清理工作区；保留任务外修改。
+
+## 文档站 UI 与维护
+
+- 适用范围：`neutrino-proxy-vuepress/`，目录名保留用于兼容既有路径，实际使用 VitePress。
+- Skill: `awesome-design-md`
+- Source: `VoltAgent/awesome-design-md`
+- Style ID: `mintlify`（用户于 2026-10-29 选择）
+- Style reference: `C:/Users/Administrator/.codex/skills/awesome-design-md/references/design-md/mintlify/DESIGN.md`
+- 保留现有文档、静态资源、永久链接和标题锚点；发布前运行 `npm run check` 与 `npm run test:e2e`。
+- 根路径与子路径部署都需要验证。部署工作流仅手动触发，正式发布需要当次授权。

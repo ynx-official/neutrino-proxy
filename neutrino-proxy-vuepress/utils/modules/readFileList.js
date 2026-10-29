@@ -10,8 +10,8 @@ function readFileList(dir = docsRoot, filesList = []) {
   files.forEach( (item, index) => {
       let filePath = path.join(dir, item);
       const stat = fs.statSync(filePath);
-      if (stat.isDirectory() && item !== '.vuepress') {
-        readFileList(path.join(dir, item), filesList);  //递归读取文件
+      if (stat.isDirectory()) {
+        if (!item.startsWith('.') && item !== 'public') readFileList(path.join(dir, item), filesList);
       } else {
         if(path.basename(dir) !== 'docs'){ // 过滤docs目录级下的文件
 

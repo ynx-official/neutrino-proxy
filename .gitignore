@@ -36,6 +36,7 @@ hs_err_pid*
 # 前端
 **/package-lock.json
 !neutrino-proxy-admin/package-lock.json
+!neutrino-proxy-vuepress/package-lock.json
 **/yarn.lock
 
 **/tests/**/coverage/

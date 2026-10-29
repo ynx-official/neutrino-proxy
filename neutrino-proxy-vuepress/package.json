@@ -1,28 +1,36 @@
 {
-  "name": "theme-vdoing-doc",
+  "name": "neutrino-proxy-docs",
   "version": "1.0.0",
+  "private": true,
+  "engines": { "node": ">=22.12.0" },
   "scripts": {
-    "dev": "vuepress dev docs",
-    "build": "vuepress build docs",
-    "buildAndDeploy": "vuepress build docs && bash deploy/deploy1.sh",
-    "deploy": "bash deploy/deploy1.sh",
-    "updateTheme": "yarn remove vuepress-theme-vdoing && rm -rf node_modules && yarn && yarn add vuepress-theme-vdoing -D",
+    "dev": "vitepress dev docs --host 127.0.0.1",
+    "build": "vitepress build docs",
+    "preview": "vitepress preview docs --host 127.0.0.1",
+    "test": "node --test tests/*.test.mjs",
+    "check:links": "node scripts/check-build.mjs",
+    "test:e2e": "playwright test",
+    "test:nginx": "node scripts/check-nginx.mjs",
+    "check": "npm test && npm run build && npm run check:links",
     "editFm": "node utils/editFrontmatter.js"
   },
   "license": "MIT",
   "devDependencies": {
-    "dayjs": "^1.9.7",
+    "@playwright/test": "1.64.1",
+    "gray-matter": "4.0.3",
+    "linkedom": "0.18.12",
+    "markdown-it": "14.3.3",
+    "markdown-it-container": "4.0.0",
+    "medium-zoom": "1.1.0",
+    "chalk": "^4.1.2",
     "inquirer": "^7.1.0",
     "json2yaml": "^1.1.0",
-    "vuepress": "1.9.2",
-    "vuepress-plugin-baidu-tongji": "^1.0.1",
-    "vuepress-plugin-demo-block": "^0.7.2",
-    "vuepress-plugin-fulltext-search": "^2.2.1",
-    "vuepress-plugin-one-click-copy": "^1.0.2",
-    "vuepress-plugin-thirdparty-search": "^1.0.2",
-    "vuepress-plugin-zooming": "^1.1.7",
-    "vuepress-theme-vdoing": "^1.12.3",
+    "vitepress": "1.6.4",
+    "vue": "^3.5.13",
     "yamljs": "^0.3.0"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "overrides": {
+    "external-editor": { "tmp": "^0.2.6" }
+  }
 }

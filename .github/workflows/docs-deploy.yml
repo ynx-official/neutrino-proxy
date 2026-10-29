@@ -1,0 +1,67 @@
+name: Deploy documentation
+
+# Publishing is opt-in for each dispatch, independent of Java releases.
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish verified output to GitHub Pages
+        type: boolean
+        default: false
+      base_path:
+        description: '/ for a custom domain; /neutrino-proxy/ for repository Pages'
+        type: string
+        default: /neutrino-proxy/
+      custom_domain:
+        description: 'Optional hostname only; requires base_path=/ and existing DNS configuration'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      DOCS_BASE: ${{ inputs.base_path }}
+      DOCS_DOMAIN: ${{ inputs.custom_domain }}
+    defaults:
+      run:
+        working-directory: neutrino-proxy-vuepress
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: neutrino-proxy-vuepress/package-lock.json
+      - run: npm ci --no-fund
+      - run: npm run check
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: neutrino-proxy-vuepress/docs/.vitepress/dist
+  deploy:
+    if: ${{ inputs.publish }}
+    needs: build
+    runs-on: ubuntu-22.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy verified documentation
+        id: deployment
+        uses: actions/deploy-pages@v4

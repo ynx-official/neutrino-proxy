@@ -1,5 +1,4 @@
 # npm
-package-lock.json
 node_modules
 yarn-error.log
 
@@ -11,6 +10,11 @@ yarn.lock
 
 # vuepress
 docs/.vuepress/dist
+docs/.vitepress/dist/
+docs/.vitepress/cache/
+docs/.vitepress/.temp/
+test-results/
+playwright-report/
 
 # 百度链接推送
 urls.txt

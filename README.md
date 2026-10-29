@@ -22,6 +22,8 @@
 - 官网地址：https://neutrino-proxy-docs.asgc.fun
 - 快速上手请[点击这里](https://neutrino-proxy-docs.asgc.fun/pages/793dcb/)
 
+文档站源码位于 `neutrino-proxy-vuepress/`，现使用 VitePress；本地运行、验证与部署见[文档站构建与部署](docs/05-operations/documentation-site.md)。
+
 # 2、名称由来
 中微子，是轻子的一种，是组成自然界的最基本的粒子之一。它十分微小、不带电，可自由穿过地球，以接近光速运动，与其他物质的相互作用十分微弱，号称宇宙间的“隐身人”。
 

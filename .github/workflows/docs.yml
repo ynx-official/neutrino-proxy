@@ -1,0 +1,62 @@
+name: Documentation CI
+
+on:
+  push:
+    paths: ['neutrino-proxy-vuepress/**', '.github/workflows/docs*.yml']
+  pull_request:
+    paths: ['neutrino-proxy-vuepress/**', '.github/workflows/docs*.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docs-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: root
+            base: /
+          - name: subpath
+            base: /neutrino-proxy/
+    env:
+      DOCS_BASE: ${{ matrix.base }}
+    defaults:
+      run:
+        working-directory: neutrino-proxy-vuepress
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: neutrino-proxy-vuepress/package-lock.json
+      - run: npm ci --no-fund
+      - run: npm run check
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: npm run test:nginx
+        if: matrix.name == 'root'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docs-${{ matrix.name }}
+          path: neutrino-proxy-vuepress/docs/.vitepress/dist
+          include-hidden-files: true
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: docs-browser-${{ matrix.name }}
+          path: |
+            neutrino-proxy-vuepress/playwright-report
+            neutrino-proxy-vuepress/test-results
