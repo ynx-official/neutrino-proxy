@@ -68,3 +68,38 @@ jobs:
       - name: Deploy verified documentation
         id: deployment
         uses: actions/deploy-pages@v4
+
+  verify-live:
+    needs: deploy
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      DOCS_BASE: /
+      DOCS_TEST_URL: https://${{ inputs.custom_domain }}/
+    defaults:
+      run:
+        working-directory: neutrino-proxy-vuepress
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: neutrino-proxy-vuepress/package-lock.json
+      - run: npm ci --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Verify public deployment and HTTPS
+        run: node scripts/check-live-deployment.mjs
+      - name: Verify live browser behavior
+        run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: docs-live-browser
+          path: |
+            neutrino-proxy-vuepress/playwright-report
+            neutrino-proxy-vuepress/test-results
