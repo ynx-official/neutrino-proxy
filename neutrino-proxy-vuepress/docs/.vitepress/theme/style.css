@@ -10,6 +10,8 @@
   --vp-c-text-1: #1c1c1e;
   --vp-c-text-2: #5a5a5c;
   --vp-c-divider: #e5e5e5;
+  --docs-scrollbar-thumb: #c2c9c5;
+  --docs-scrollbar-thumb-active: #89968f;
   --vp-font-family-base: Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif;
   --vp-font-family-mono: 'Geist Mono', 'SFMono-Regular', Consolas, monospace;
   --vp-button-brand-bg: #0a0a0a;
@@ -29,6 +31,8 @@
   --vp-c-text-1: #f3f5f4;
   --vp-c-text-2: #b3bdb9;
   --vp-c-divider: #303a36;
+  --docs-scrollbar-thumb: #46564e;
+  --docs-scrollbar-thumb-active: #7b9185;
   --vp-button-brand-bg: #00d4a4;
   --vp-button-brand-text: #0a0a0a;
   --vp-button-brand-hover-bg: #7cebcb;
@@ -69,6 +73,26 @@
   border-left: 1px solid var(--vp-c-divider);
 }
 .VPSidebar .VPSidebarItem.level-1 > .item > .link { padding-inline: 8px; }
+:root .VPSidebar {
+  --sidebar-scrollbar-thumb: var(--docs-scrollbar-thumb);
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  scrollbar-width: thin;
+  scrollbar-color: var(--sidebar-scrollbar-thumb) transparent;
+}
+.VPSidebar:hover,
+.VPSidebar:focus-within { --sidebar-scrollbar-thumb: var(--docs-scrollbar-thumb-active); }
+/* Standard scrollbar properties override WebKit pseudo-elements; use one styling path per browser. */
+@supports selector(::-webkit-scrollbar) {
+  :root .VPSidebar { scrollbar-width: auto; scrollbar-color: auto; }
+  .VPSidebar::-webkit-scrollbar { width: 5px; }
+  .VPSidebar::-webkit-scrollbar-track { background: transparent; }
+  .VPSidebar::-webkit-scrollbar-thumb {
+    background: var(--sidebar-scrollbar-thumb);
+    border-radius: 999px;
+    min-height: 32px;
+  }
+  .VPSidebar::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+}
 .legacy-center { text-align: center; }
 .medium-zoom-overlay, .medium-zoom-image--opened { z-index: 100; }
 :focus-visible { outline: 2px solid var(--vp-c-brand-1); outline-offset: 4px; }
