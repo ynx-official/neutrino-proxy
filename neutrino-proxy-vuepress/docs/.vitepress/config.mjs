@@ -1,11 +1,13 @@
 import { defineConfig } from 'vitepress'
 import container from 'markdown-it-container'
-import { readPages, buildSidebar } from '../../scripts/content.mjs'
+import { readPages } from '../../scripts/content.mjs'
+import { buildNavigation } from '../../scripts/navigation.mjs'
 import { buildRewrites, normalizeBase } from '../../scripts/routes.mjs'
 import { legacySlugify } from '../../scripts/legacy-markdown.mjs'
 import { validateDomain, writeDeploymentFiles } from '../../scripts/deployment.mjs'
 
 const pages = readPages()
+const navigation = buildNavigation(pages)
 const base = normalizeBase(process.env.DOCS_BASE || '/')
 const domain = validateDomain(process.env.DOCS_DOMAIN || '', base)
 
@@ -23,14 +25,8 @@ export default defineConfig({
   ],
   themeConfig: {
     logo: '/img/logo.png',
-    nav: [
-      { text: '首页', link: '/' },
-      { text: '文档', link: '/pages/793dcb/' },
-      { text: '案例', link: '/pages/5d571c/' },
-      { text: '支持', link: '/pages/1ab20b/' },
-      { text: '更新记录', link: '/pages/ff3519/' },
-    ],
-    sidebar: buildSidebar(pages),
+    nav: navigation.nav,
+    sidebar: navigation.sidebar,
     outline: { label: '本页目录', level: [2, 3] },
     socialLinks: [{ icon: 'github', link: 'https://github.com/ynx-official/neutrino-proxy' }],
     docFooter: { prev: '上一篇', next: '下一篇' },
@@ -42,7 +38,7 @@ export default defineConfig({
     darkModeSwitchTitle: '切换为深色',
     skipToContentLabel: '跳到正文',
     notFound: { code: '404', title: '页面不存在', quote: '可以返回首页，或使用搜索查找文档。', linkLabel: '返回首页', linkText: '返回首页' },
-    footer: { message: '基于 MIT 许可证发布', copyright: '中微子代理 · Neutrino Proxy' },
+    footer: { message: `基于 MIT 许可证发布 · <a href="${base}pages/a20ce8/">历史站点资料</a>`, copyright: '中微子代理 · Neutrino Proxy' },
     search: {
       provider: 'local',
       options: {

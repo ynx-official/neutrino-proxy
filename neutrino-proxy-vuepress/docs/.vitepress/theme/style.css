@@ -63,6 +63,12 @@
 .VPHome .vp-doc .friends-item-img { width: 100%; max-width: 150px; height: 48px; object-fit: contain; }
 .VPHome .vp-doc .friends-item:hover, .VPHome .vp-doc .card-item:hover { border-color: var(--vp-c-brand-1); }
 .VPSidebarItem.is-active > .item { border-radius: 6px; background: var(--vp-c-brand-soft); }
+.VPSidebar .VPSidebarItem.level-0 > .items {
+  margin-left: 4px;
+  padding-left: 12px;
+  border-left: 1px solid var(--vp-c-divider);
+}
+.VPSidebar .VPSidebarItem.level-1 > .item > .link { padding-inline: 8px; }
 .legacy-center { text-align: center; }
 .medium-zoom-overlay, .medium-zoom-image--opened { z-index: 100; }
 :focus-visible { outline: 2px solid var(--vp-c-brand-1); outline-offset: 4px; }

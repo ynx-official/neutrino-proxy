@@ -27,11 +27,11 @@ export function readPages(root = docsRoot) {
   })
 }
 
-export function buildSidebar(pages) {
+export function buildSidebar(pages, { stripRoot = false } = {}) {
   const items = []
   for (const page of pages.filter(page => page.route !== '/' && !page.data.archivesPage)) {
     let level = items
-    for (const folder of page.source.split('/').slice(0, -1)) {
+    for (const folder of page.source.split('/').slice(stripRoot ? 1 : 0, -1)) {
       const text = folder.replace(/^\d+\./, '')
       let group = level.find(item => item.text === text && item.items)
       if (!group) {
