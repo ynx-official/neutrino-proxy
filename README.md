@@ -19,8 +19,8 @@
 - 中微子代理（neutrino-proxy）是一个基于netty的、开源的java内网穿透项目。
 - 技术栈：Solon、MybatisPlus、Netty
 - 遵循MIT许可，因此您可以对它进行复制、修改、传播并用于任何个人或商业行为。
-- 官网地址：https://neutrino-proxy-docs.asgc.fun
-- 快速上手请[点击这里](https://neutrino-proxy-docs.asgc.fun/pages/793dcb/)
+- 官网地址：https://neutrino-proxy-docs.mrsunshine.cn
+- 快速上手请[点击这里](https://neutrino-proxy-docs.mrsunshine.cn/pages/793dcb/)
 
 文档站源码位于 `neutrino-proxy-vuepress/`，现使用 VitePress；本地运行、验证与部署见[文档站构建与部署](docs/05-operations/documentation-site.md)。
 
@@ -32,11 +32,11 @@
 因此以中微子命名，寓意着中微子代理拥有中微子"安全"、"快速"、"穿透力强"的特点。
 
 # 3、部署方式
-- 1、[使用宝塔面板](https://neutrino-proxy-docs.asgc.fun/pages/9e0fde/)
-- 2、[使用jar文件](https://neutrino-proxy-docs.asgc.fun/pages/eebea1/)
-- 3、[使用Docker](https://neutrino-proxy-docs.asgc.fun/pages/5b9bef/)
-- 4、[原生部署](https://neutrino-proxy-docs.asgc.fun/pages/69699a/)
-- 5、[使用Docker-Compose](https://neutrino-proxy-docs.asgc.fun/pages/2d4123/)
+- 1、[使用宝塔面板](https://neutrino-proxy-docs.mrsunshine.cn/pages/9e0fde/)
+- 2、[使用jar文件](https://neutrino-proxy-docs.mrsunshine.cn/pages/eebea1/)
+- 3、[使用Docker](https://neutrino-proxy-docs.mrsunshine.cn/pages/5b9bef/)
+- 4、[原生部署](https://neutrino-proxy-docs.mrsunshine.cn/pages/69699a/)
+- 5、[使用Docker-Compose](https://neutrino-proxy-docs.mrsunshine.cn/pages/2d4123/)
 
 # 4、运行示例
 ![首页](assets/run-example/home.png)
