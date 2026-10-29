@@ -7,7 +7,7 @@
 
 ## 当前项目
 
-- [文档站构建与部署](05-operations/documentation-site.md)：VitePress、旧链接、根/子路径、CI 与手动 Pages 部署。
+- [文档站构建与部署](05-operations/documentation-site.md)：VitePress、旧链接、根/子路径、CI、GitHub Pages 自定义域名与手动发布。
 - [VitePress 迁移与验收](06-delivery/vitepress-migration.md)：迁移范围、内容基线、设计与实际验证。
 
 本仓库维护服务端、Java 命令行客户端、core 和管理后台。桌面 Rust/Tauri 项目已于 2026-10-27 完整移入独立仓库，不再从本仓库构建或发布。

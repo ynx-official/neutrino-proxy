@@ -9,13 +9,13 @@ on:
         type: boolean
         default: false
       base_path:
-        description: '/ for a custom domain; /neutrino-proxy/ for repository Pages'
+        description: '/ for production; /neutrino-proxy/ is available for build-only rehearsals'
         type: string
-        default: /neutrino-proxy/
+        default: /
       custom_domain:
-        description: 'Optional hostname only; requires base_path=/ and existing DNS configuration'
+        description: 'Production hostname; must match Settings > Pages > Custom domain'
         type: string
-        default: ''
+        default: neutrino-proxy-docs.mrsunshine.cn
 
 permissions:
   contents: read
@@ -31,6 +31,7 @@ jobs:
     env:
       DOCS_BASE: ${{ inputs.base_path }}
       DOCS_DOMAIN: ${{ inputs.custom_domain }}
+      DOCS_PUBLISH: ${{ inputs.publish }}
     defaults:
       run:
         working-directory: neutrino-proxy-vuepress
@@ -44,6 +45,8 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: neutrino-proxy-vuepress/package-lock.json
+      - name: Validate deployment parameters
+        run: node scripts/check-pages-publish.mjs
       - run: npm ci --no-fund
       - run: npm run check
       - run: npx playwright install --with-deps chromium

@@ -32,3 +32,4 @@
 - Style reference: `C:/Users/Administrator/.codex/skills/awesome-design-md/references/design-md/mintlify/DESIGN.md`
 - 保留现有文档、静态资源、永久链接和标题锚点；发布前运行 `npm run check` 与 `npm run test:e2e`。
 - 根路径与子路径部署都需要验证。部署工作流仅手动触发，正式发布需要当次授权。
+- 文档站采用 GitHub Pages + 自定义域名 `neutrino-proxy-docs.mrsunshine.cn`，正式构建使用 `DOCS_BASE=/`；手动工作流默认仅验证，首次上线前确认 Pages、DNS 与 HTTPS 已配置。

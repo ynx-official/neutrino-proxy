@@ -64,11 +64,49 @@ DOCS_BASE=/neutrino-proxy/ npm run test:e2e
 
 ## 手动部署到 GitHub Pages
 
-1. 在仓库 Settings → Pages 选择 GitHub Actions，并配置 `github-pages` 环境允许的部署分支；如需审批，配置环境保护规则。
-2. 运行 `Deploy documentation`，选择要构建的 ref。`publish=false` 默认只构建与验证并上传 Pages 产物。
-3. 正式发布时当次选择 `publish=true`。只有单元测试、构建、内部链接与浏览器验收通过后，部署 job 才有 Pages 写权限。
-4. 默认 `base_path=/neutrino-proxy/`。自定义域名须填 `base_path=/` 和 `custom_domain`，并事先配置 Pages 域名及 DNS。脚本校验域名格式并生成 `CNAME`。
+2026-10-29 用户确认采用 **GitHub Pages + 自定义域名 + 手动正式发布**，正式域名为 `neutrino-proxy-docs.mrsunshine.cn`。工作流默认 `base_path=/`、`custom_domain=neutrino-proxy-docs.mrsunshine.cn`、`publish=false`；正式发布拒绝空域名或子路径配置。子路径仅用于构建演练，演练时将 `custom_domain` 清空。
 
-根目录遗留 `CNAME` 中的域名与 README 官网地址不一致，因此构建不会自动采用它，也不会改 DNS。当前正式域名需在发布时明确指定。环境变量只接受公开部署路径与域名，不需要在仓库写入凭据。
+### 首次启用
 
-文档 CI 在相关文件的 push/PR 上分别验证根路径和子路径，不会发布。Java `v*` Release 不触发文档部署。回滚时手动选择已验证的历史 ref 重新运行发布工作流。
+1. 将文档源码与部署配置提交、推送到远端，并确保 `.github/workflows/docs-deploy.yml` 存在于默认分支。当前默认分支为 `master`，开发分支为 `dev`；GitHub 要求手动工作流先存在于默认分支才能触发。若暂不合并开发分支，可仅将部署工作流同步至 `master` 注册入口，运行时必须选择含完整文档源码的 `dev`。不要为启用文档发布而自动合并其他开发改动。
+2. 在仓库 Settings → Pages 选择 **GitHub Actions**，并配置 `github-pages` 环境允许发布的分支。需要人工审批时配置环境保护规则。
+3. 在 Pages 的 **Custom domain** 填入 `neutrino-proxy-docs.mrsunshine.cn`。使用 Actions 发布时，GitHub 不依赖产物中的 `CNAME` 文件绑定域名，必须配置此项；模块内与构建产物内的 `CNAME` 仅保留为部署声明。
+4. 在 DNS 服务商管理的 `mrsunshine.cn` 区域添加以下记录。先绑定 Pages 域名，再添加 DNS；同名主机已有 A/AAAA/CNAME 记录时，先核实用途再替换，避免影响原有服务。
+
+   | 类型 | 主机记录 | 记录值 | TTL |
+   | --- | --- | --- | --- |
+   | CNAME | `neutrino-proxy-docs` | `ynx-official.github.io` | 服务商默认 |
+
+   记录值不包含协议、路径或仓库名。建议在 GitHub 账户 Pages 设置完成域名所有权验证；验证需要的 TXT 值以 GitHub 页面实际给出的值为准。
+5. 运行一次 `publish=false` 的演练，确认单元测试、生产构建、链接检查和浏览器验收全部通过，再在当次正式发布授权下选择 `publish=true`。部署 job 仅在验证通过后取得 Pages 写权限。
+6. 等待 DNS 校验与证书签发完成，在 Pages 启用 **Enforce HTTPS**。首次上线验收 HTTPS 首页、直接访问 `/pages/793dcb/`、带标题锚点的旧路径、静态资源、搜索与真实 404，然后更新根 README 的官网入口。
+
+DNS 与证书生效可能需要等待。PowerShell 可用 `Resolve-DnsName neutrino-proxy-docs.mrsunshine.cn -Type CNAME` 检查；若本机使用代理 DNS，应同时通过公共解析器验证，不能把代理返回的保留地址当成真实站点地址。
+
+### 手动发布与回滚
+
+在 Actions 中选择 `Deploy documentation`，选择已经验证且包含文档源码的分支；默认只验证并上传构建产物，正式发布时勾选 `publish`。GitHub CLI 的 `<approved-ref>` 使用已批准的分支或标签，运行后核对该次工作流的提交 SHA：
+
+```sh
+gh workflow run docs-deploy.yml --ref <approved-ref> -f publish=false -f base_path=/ -f custom_domain=neutrino-proxy-docs.mrsunshine.cn
+# 仅在当次正式发布已获授权后执行：
+gh workflow run docs-deploy.yml --ref <approved-ref> -f publish=true -f base_path=/ -f custom_domain=neutrino-proxy-docs.mrsunshine.cn
+```
+
+回滚时选择已验证且包含该工作流的历史 ref，使用相同域名与根路径重新手动发布。环境变量只包含公开部署参数，不在仓库保存凭据。
+
+### 旧域名与上线状态
+
+页面 permalink 与标题锚点保持不变。旧域名 `neutrino-proxy-docs.asgc.fun` 和 `neutrino-proxy.dromara.org` 的控制权未确认；新站无法替代旧域名管理员配置 HTTP 301/308 跳转。需要由旧站保留完整路径与查询参数重定向到新域名，并验证浏览器保留标题片段。正式上线前根 README 继续保留已有官网入口。
+
+2026-10-29 实际状态：
+
+- 仓库公开，默认分支为 `master`；远端工作流列表中尚无 `Deploy documentation`。本地 `dev` 的 VitePress 迁移提交与本轮部署配置尚待推送。
+- 已通过 GitHub API 启用 Pages，确认 `build_type=workflow` 并绑定 `neutrino-proxy-docs.mrsunshine.cn`。未运行发布，Pages 状态仍为空。
+- 公共 DNS 查询尚无目标 CNAME，当前有 A 记录；需域名管理员核实并配置上述 CNAME。未修改 DNS，证书尚未签发，`https_enforced=false`。
+- 以新域名、根路径执行 `npm run check`：11 项测试、37 页、2,190 条链接/资源检查通过；`npm run test:e2e`：42 项 Chromium 测试通过。工作流 YAML、默认发布参数与产物 `CNAME` / `site-manifest.json` 均已检查。
+- 本轮未提交、推送或执行正式发布。Pages 设置已准备，DNS、代码同步和首次发布仍待完成。
+
+文档 CI 在相关文件的 push/PR 上分别验证根路径和子路径，不会发布。Java `v*` Release 不触发文档部署。
+
+依据：[GitHub 自定义域名配置](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site)、[手动触发工作流](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow)。
