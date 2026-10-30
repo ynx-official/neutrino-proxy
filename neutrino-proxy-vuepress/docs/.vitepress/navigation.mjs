@@ -74,88 +74,88 @@ const learning = [
     {"text":"文章写作与源码引用规范","link":"/learn/authoring/"}
   ] },
   { text: "项目导读", collapsed: false, items: [
-    {"text":"01.01 项目全景与内网穿透边界","link":"/learn/project-overview/"},
-    {"text":"01.02 技术栈与依赖地图","link":"/learn/technology-stack/"},
-    {"text":"01.03 本地调试与第一条 TCP 映射","link":"/learn/local-debugging/"},
-    {"text":"01.04 调用链阅读与断点记录方法","link":"/learn/source-reading-method/"}
+    {"text":"01 项目全景与内网穿透边界","link":"/learn/project-overview/"},
+    {"text":"02 技术栈与依赖地图","link":"/learn/technology-stack/"},
+    {"text":"03 本地调试与第一条 TCP 映射","link":"/learn/local-debugging/"},
+    {"text":"04 调用链阅读与断点记录方法","link":"/learn/source-reading-method/"}
   ] },
   { text: "Java与Maven", collapsed: false, items: [
-    {"text":"02.01 接口 泛型 注解与消息分发","link":"/learn/java-abstractions/"},
-    {"text":"02.02 并发容器 可见性与复合操作","link":"/learn/java-concurrency/"},
-    {"text":"02.03 字节 编码 异常与资源所有权","link":"/learn/java-bytes-resources/"},
-    {"text":"02.04 Maven 多模块 依赖与构建阶段","link":"/learn/maven-modules/"}
+    {"text":"01 接口 泛型 注解与消息分发","link":"/learn/java-abstractions/"},
+    {"text":"02 并发容器 可见性与复合操作","link":"/learn/java-concurrency/"},
+    {"text":"03 字节 编码 异常与资源所有权","link":"/learn/java-bytes-resources/"},
+    {"text":"04 Maven 多模块 依赖与构建阶段","link":"/learn/maven-modules/"}
   ] },
   { text: "Solon启动与API", collapsed: false, items: [
-    {"text":"03.01 从 main 到应用加载完成","link":"/learn/solon-startup/"},
-    {"text":"03.02 配置绑定 依赖注入与 Bean 组装","link":"/learn/solon-injection/"},
-    {"text":"03.03 HTTP 路由 参数与响应包装","link":"/learn/solon-http-api/"},
-    {"text":"03.04 登录上下文 拦截器与清理边界","link":"/learn/solon-request-context/"}
+    {"text":"01 从 main 到应用加载完成","link":"/learn/solon-startup/"},
+    {"text":"02 配置绑定 依赖注入与 Bean 组装","link":"/learn/solon-injection/"},
+    {"text":"03 HTTP 路由 参数与响应包装","link":"/learn/solon-http-api/"},
+    {"text":"04 登录上下文 拦截器与清理边界","link":"/learn/solon-request-context/"}
   ] },
   { text: "管理业务与数据", collapsed: false, items: [
-    {"text":"04.01 用户 License 与映射数据模型","link":"/learn/database-model/"},
-    {"text":"04.02 数据源 Mapper 与数据库初始化","link":"/learn/persistence-initialization/"},
-    {"text":"04.03 登录 Token 与资源权限","link":"/learn/login-authorization/"},
-    {"text":"04.04 License 与端口池业务规则","link":"/learn/license-port-pool/"},
-    {"text":"04.05 端口映射 CRUD 完整纵向切片","link":"/learn/port-mapping-crud/"},
-    {"text":"04.06 配置动态生效与运行状态一致性","link":"/learn/runtime-consistency/"}
+    {"text":"01 用户 License 与映射数据模型","link":"/learn/database-model/"},
+    {"text":"02 数据源 Mapper 与数据库初始化","link":"/learn/persistence-initialization/"},
+    {"text":"03 登录 Token 与资源权限","link":"/learn/login-authorization/"},
+    {"text":"04 License 与端口池业务规则","link":"/learn/license-port-pool/"},
+    {"text":"05 端口映射 CRUD 完整纵向切片","link":"/learn/port-mapping-crud/"},
+    {"text":"06 配置动态生效与运行状态一致性","link":"/learn/runtime-consistency/"}
   ] },
   { text: "Netty基础", collapsed: false, items: [
-    {"text":"05.01 NIO Reactor 与 EventLoop 线程模型","link":"/learn/netty-reactor/"},
-    {"text":"05.02 Bootstrap Channel 与异步 Future","link":"/learn/netty-bootstrap/"},
-    {"text":"05.03 Pipeline 入站 出站与 Handler 生命周期","link":"/learn/netty-pipeline/"},
-    {"text":"05.04 ByteBuf 引用计数与释放责任","link":"/learn/netty-bytebuf/"},
-    {"text":"05.05 写缓冲水位与 AUTO_READ 背压","link":"/learn/netty-backpressure/"}
+    {"text":"01 NIO Reactor 与 EventLoop 线程模型","link":"/learn/netty-reactor/"},
+    {"text":"02 Bootstrap Channel 与异步 Future","link":"/learn/netty-bootstrap/"},
+    {"text":"03 Pipeline 入站 出站与 Handler 生命周期","link":"/learn/netty-pipeline/"},
+    {"text":"04 ByteBuf 引用计数与释放责任","link":"/learn/netty-bytebuf/"},
+    {"text":"05 写缓冲水位与 AUTO_READ 背压","link":"/learn/netty-backpressure/"}
   ] },
   { text: "协议与分发", collapsed: false, items: [
-    {"text":"06.01 ProxyMessage 帧结构与消息类型","link":"/learn/protocol-frame/"},
-    {"text":"06.02 编码器如何计算长度并写入字段","link":"/learn/protocol-encoder/"},
-    {"text":"06.03 长度字段拆包与增量解码","link":"/learn/protocol-decoder/"},
-    {"text":"06.04 从消息类型到 Handler 的分发","link":"/learn/protocol-dispatcher/"},
-    {"text":"06.05 协议边界与跨语言测试向量","link":"/learn/protocol-boundary-tests/"}
+    {"text":"01 ProxyMessage 帧结构与消息类型","link":"/learn/protocol-frame/"},
+    {"text":"02 编码器如何计算长度并写入字段","link":"/learn/protocol-encoder/"},
+    {"text":"03 长度字段拆包与增量解码","link":"/learn/protocol-decoder/"},
+    {"text":"04 从消息类型到 Handler 的分发","link":"/learn/protocol-dispatcher/"},
+    {"text":"05 协议边界与跨语言测试向量","link":"/learn/protocol-boundary-tests/"}
   ] },
   { text: "服务端TCP链路", collapsed: false, items: [
-    {"text":"07.01 隧道监听与控制数据连接入口","link":"/learn/server-tunnel/"},
-    {"text":"07.02 License 认证与客户端绑定","link":"/learn/server-authentication/"},
-    {"text":"07.03 映射监听与访问者连接管理","link":"/learn/server-listeners/"},
-    {"text":"07.04 VisitorId 与数据通道绑定","link":"/learn/server-connect-binding/"},
-    {"text":"07.05 请求响应的双向数据转发","link":"/learn/server-transfer/"},
-    {"text":"07.06 断开 异常与连接关系清理","link":"/learn/server-disconnection/"}
+    {"text":"01 隧道监听与控制数据连接入口","link":"/learn/server-tunnel/"},
+    {"text":"02 License 认证与客户端绑定","link":"/learn/server-authentication/"},
+    {"text":"03 映射监听与访问者连接管理","link":"/learn/server-listeners/"},
+    {"text":"04 VisitorId 与数据通道绑定","link":"/learn/server-connect-binding/"},
+    {"text":"05 请求响应的双向数据转发","link":"/learn/server-transfer/"},
+    {"text":"06 断开 异常与连接关系清理","link":"/learn/server-disconnection/"}
   ] },
   { text: "Java客户端设计", collapsed: false, items: [
-    {"text":"08.01 启动参数 配置优先级与 ClientId","link":"/learn/client-configuration/"},
-    {"text":"08.02 控制会话与认证结果处理","link":"/learn/client-session/"},
-    {"text":"08.03 内网目标连接与异步绑定","link":"/learn/client-target-connection/"},
-    {"text":"08.04 TCP 转发与多访问者隔离","link":"/learn/client-forwarding/"},
-    {"text":"08.05 读写空闲 心跳与超时语义","link":"/learn/client-heartbeat/"},
-    {"text":"08.06 定时重连 可见性与并发边界","link":"/learn/client-reconnection/"},
-    {"text":"08.07 通道池 连接关闭与资源所有权","link":"/learn/client-pool-cleanup/"},
-    {"text":"08.08 从现有回调整理客户端状态机","link":"/learn/client-state-machine/"}
+    {"text":"01 启动参数 配置优先级与 ClientId","link":"/learn/client-configuration/"},
+    {"text":"02 控制会话与认证结果处理","link":"/learn/client-session/"},
+    {"text":"03 内网目标连接与异步绑定","link":"/learn/client-target-connection/"},
+    {"text":"04 TCP 转发与多访问者隔离","link":"/learn/client-forwarding/"},
+    {"text":"05 读写空闲 心跳与超时语义","link":"/learn/client-heartbeat/"},
+    {"text":"06 定时重连 可见性与并发边界","link":"/learn/client-reconnection/"},
+    {"text":"07 通道池 连接关闭与资源所有权","link":"/learn/client-pool-cleanup/"},
+    {"text":"08 从现有回调整理客户端状态机","link":"/learn/client-state-machine/"}
   ] },
   { text: "UDP与HTTP安全", collapsed: false, items: [
-    {"text":"09.01 UDP 封装 会话隔离与回包路径","link":"/learn/udp-forwarding/"},
-    {"text":"09.02 UDP 端口分配 响应次数与超时","link":"/learn/udp-lifecycle/"},
-    {"text":"09.03 HTTP 域名选择与首包转发","link":"/learn/http-domain-routing/"},
-    {"text":"09.04 HTTPS 与隧道 TLS 的不同边界","link":"/learn/tls-boundaries/"},
-    {"text":"09.05 安全组 访问规则与流量限制","link":"/learn/security-rate-limiting/"}
+    {"text":"01 UDP 封装 会话隔离与回包路径","link":"/learn/udp-forwarding/"},
+    {"text":"02 UDP 端口分配 响应次数与超时","link":"/learn/udp-lifecycle/"},
+    {"text":"03 HTTP 域名选择与首包转发","link":"/learn/http-domain-routing/"},
+    {"text":"04 HTTPS 与隧道 TLS 的不同边界","link":"/learn/tls-boundaries/"},
+    {"text":"05 安全组 访问规则与流量限制","link":"/learn/security-rate-limiting/"}
   ] },
   { text: "测试与稳定性", collapsed: false, items: [
-    {"text":"10.01 单元 集成与真实网络测试分层","link":"/learn/testing-strategy/"},
-    {"text":"10.02 连接故障矩阵与恢复验证","link":"/learn/fault-matrix/"},
-    {"text":"10.03 慢消费者 大文件与并发压力","link":"/learn/slow-consumer-load/"},
-    {"text":"10.04 线程 Channel 与内存排障","link":"/learn/resource-diagnostics/"},
-    {"text":"10.05 流量计数 定时汇总与数据清理","link":"/learn/flow-jobs/"}
+    {"text":"01 单元 集成与真实网络测试分层","link":"/learn/testing-strategy/"},
+    {"text":"02 连接故障矩阵与恢复验证","link":"/learn/fault-matrix/"},
+    {"text":"03 慢消费者 大文件与并发压力","link":"/learn/slow-consumer-load/"},
+    {"text":"04 线程 Channel 与内存排障","link":"/learn/resource-diagnostics/"},
+    {"text":"05 流量计数 定时汇总与数据清理","link":"/learn/flow-jobs/"}
   ] },
   { text: "构建与交付", collapsed: false, items: [
-    {"text":"11.01 多模块构建 胖 JAR 与启动验证","link":"/learn/jar-build/"},
-    {"text":"11.02 Solon AOT 与 Native Image 元数据","link":"/learn/native-aot/"},
-    {"text":"11.03 glibc musl 与跨平台兼容边界","link":"/learn/native-platforms/"},
-    {"text":"11.04 CI 产物完整性 哈希与发布规则","link":"/learn/release-integrity/"}
+    {"text":"01 多模块构建 胖 JAR 与启动验证","link":"/learn/jar-build/"},
+    {"text":"02 Solon AOT 与 Native Image 元数据","link":"/learn/native-aot/"},
+    {"text":"03 glibc musl 与跨平台兼容边界","link":"/learn/native-platforms/"},
+    {"text":"04 CI 产物完整性 哈希与发布规则","link":"/learn/release-integrity/"}
   ] },
   { text: "桌面客户端进阶", collapsed: false, items: [
-    {"text":"12.01 Java 与 Rust 的协议兼容","link":"/learn/desktop-protocol/"},
-    {"text":"12.02 Netty 到 Tokio 的异步内核映射","link":"/learn/desktop-async-core/"},
-    {"text":"12.03 通信内核 Tauri 与 Vue 的职责边界","link":"/learn/desktop-host-ui/"},
-    {"text":"12.04 配置导入 凭证存储与诊断日志","link":"/learn/desktop-storage/"}
+    {"text":"01 Java 与 Rust 的协议兼容","link":"/learn/desktop-protocol/"},
+    {"text":"02 Netty 到 Tokio 的异步内核映射","link":"/learn/desktop-async-core/"},
+    {"text":"03 通信内核 Tauri 与 Vue 的职责边界","link":"/learn/desktop-host-ui/"},
+    {"text":"04 配置导入 凭证存储与诊断日志","link":"/learn/desktop-storage/"}
   ] }
 ]
 

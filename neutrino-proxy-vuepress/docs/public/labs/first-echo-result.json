@@ -1,0 +1,38 @@
+{
+  "lesson": "01.01",
+  "executedAt": "2026-10-30T07:48:39.158930+00:00",
+  "scope": "loopback integration; no NAT or public-network validation",
+  "windowsTcpPipeCompat": true,
+  "mode": "demo",
+  "checks": [
+    {
+      "name": "direct_target",
+      "passed": true,
+      "bytes": 14
+    },
+    {
+      "name": "proxy_roundtrip",
+      "passed": true,
+      "bytes": 14,
+      "sha256": "9ddc4781a5d61653c398969b82404dc6c6429d25aaa6c7db0c04a94a31b8940a"
+    }
+  ],
+  "ports": {
+    "management": 63393,
+    "tunnel": 63394,
+    "mapping": 63395,
+    "target": 63397
+  },
+  "example": {
+    "sent": "hello-neutrino",
+    "received": "hello-neutrino"
+  },
+  "temporaryStateRemoved": true,
+  "java": "openjdk version \"21.0.10\" 2026-01-20 LTS",
+  "python": "3.14.6",
+  "sourceCommit": "512d709d23fbb4f79278babdffe7dbba107958ba",
+  "jars": {
+    "server": "dea90dfeff122b9fddcf9288fcc1e6a9f770cbc4d0ddac0132527735f1d91cad",
+    "client": "e4afe4c48e893a02443e7acc4859271a1d88c8f96269bffc71a539fad4fdb100"
+  }
+}

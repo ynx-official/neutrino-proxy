@@ -36,6 +36,40 @@ sourceExcerpts:
 
 已经有用户了，为什么还要 License？已经有端口映射了，为什么又有端口池？先给这几个对象各分配一个职责，再去看字段。
 
+## 先说明为什么要拆成这五张表
+
+| 表 | 它回答的业务问题 | 为什么单独存在 |
+| --- | --- | --- |
+| `user` | 谁登录管理、谁拥有配置？ | 管理身份有自己的生命周期，不应和每条映射重复保存 |
+| `license` | client 用什么凭证连接、归哪个用户？ | 管理登录和客户端认证是两种场景；一个用户可管理多份 License |
+| `port_group` | 一批端口是共享的，还是归某用户或 License？ | 用分组表达资源归属，避免每个端口重复描述分配范围 |
+| `port_pool` | server 哪些业务端口已被登记为可选资源？ | 能监听的操作系统端口，不等于业务允许分配的端口 |
+| `port_mapping` | 哪个入口、用什么协议、转到什么目标？ | 映射规则可以单独启停、更新和关联访问规则 |
+
+这些职责说明是根据当前表结构与 Service 使用方式作出的设计解读，不是新增表方案，也不代表已有历史选型文档。
+
+![用户与 License、License 与映射、分组与端口池，以及映射按端口值查找资源的业务关系](/learning/core-business-model.svg)
+
+<a href="../../learning/core-business-model.html" target="_self">打开核心表关系大图</a>。`1 / N` 表示概念上的一对多关联，**不代表数据库声明了外键约束**。端口池与映射的虚线按端口值关联：Service 用 `port_mapping.server_port` 查询 `port_pool.port`，不是使用一个 `port_pool_id`。
+
+`port_group.possessor_type` 决定 `possessor_id` 的含义：0 为全局共享（id=-1），1 为用户归属，2 为 License 归属。为了先读清主线，图中省略这两种条件归属线；后面的 [端口池规则](/learn/license-port-pool/)再展开。
+
+### 放进一组虚构数据看看
+
+下面只用于理解关系，不会执行写库：
+
+| 表 | 示例值 | 用来说明什么 |
+| --- | --- | --- |
+| user | `id=7` | 管理用户 |
+| license | `id=12, user_id=7` | 这份 License 属于用户 7；凭证值不在示例中展示 |
+| port_group | `id=1, possessor_type=0, possessor_id=-1` | 共享端口分组 |
+| port_pool | `id=30, group_id=1, port=18080` | 登记一个可用入口 |
+| port_mapping | `id=90, license_id=12, server_port=18080, client_ip=127.0.0.1, client_port=8080` | 让持有该 License 的 client 连接自己能访问的 8080 |
+
+先有这份业务描述，代码才知道该查哪个用户、验证哪份授权、监听哪个端口、让 client 去连接什么地址。以后读 Mapper 和 Netty Handler，就能把字段放回具体问题里。
+
+域名、安全组、连接日志、流量报表是这条主线的扩展，后面再补。先不用一次把整份 DDL 背下来。
+
 <span id="项目源码入口"></span>
 
 ## 这次先打开哪几个文件
@@ -136,7 +170,30 @@ CREATE TABLE IF NOT EXISTS `port_mapping` (
 
 ## 动手试一小步
 
-**动手试试**：画出六个对象之间的关系，并给每条线标出实际字段。
+**动手试试**：先遮住关系图，用上面的虚构数据回答三个问题，再核对答案。
+
+<details>
+<summary>用户 7 怎样找到映射 90？</summary>
+
+先通过 `license.user_id=7` 找到 License 12，再通过 `port_mapping.license_id=12` 找到映射 90。这里是关系说明，不是新增 SQL 查询的实测结果。
+
+</details>
+
+<details>
+<summary>把 client_port 从 8080 改成 8081，要改端口池吗？</summary>
+
+不用因此改变入口资源。`server_port=18080` 仍是访问者连接的入口，`client_port` 才是 client 要连接的目标端口。能否实际生效，还要看目标监听和运行配置更新。
+
+</details>
+
+<details>
+<summary>为什么创建了这行映射，不等于 18080 一定能访问？</summary>
+
+数据库只保存业务规则。client 还要认证在线，server 要加载并成功监听映射，client 还得连上目标。字段 `is_online` 也不能替代所有目标的健康检查。
+
+</details>
+
+理解主线后，再扩展自己的关系图：
 
 先用 user、license、port_mapping、port_pool / port_group、domain_port_mapping、security_group 画关系。每条线旁边写明字段，再找对应 Service 的检查位置；不要把推断出来的线自动画成数据库外键。
 

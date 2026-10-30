@@ -1,0 +1,155 @@
+{
+  "scope": "disposable reader session; real Java JARs and loopback JDWP; IDE GUI not exercised",
+  "target": {
+    "exitCode": 0,
+    "route": "target",
+    "results": [
+      {
+        "connection": 1,
+        "sent": "hello-neutrino",
+        "passed": true,
+        "outcome": "echo",
+        "received": "hello-neutrino",
+        "bytes": 14
+      }
+    ]
+  },
+  "mapping": {
+    "exitCode": 0,
+    "route": "mapping",
+    "results": [
+      {
+        "connection": 1,
+        "sent": "hello-neutrino",
+        "passed": true,
+        "outcome": "echo",
+        "received": "hello-neutrino",
+        "bytes": 14
+      }
+    ]
+  },
+  "parallel": {
+    "exitCode": 0,
+    "route": "mapping",
+    "results": [
+      {
+        "connection": 1,
+        "sent": "reader-1|hello-neutrino",
+        "passed": true,
+        "outcome": "echo",
+        "received": "reader-1|hello-neutrino",
+        "bytes": 23
+      },
+      {
+        "connection": 2,
+        "sent": "reader-2|hello-neutrino",
+        "passed": true,
+        "outcome": "echo",
+        "received": "reader-2|hello-neutrino",
+        "bytes": 23
+      }
+    ]
+  },
+  "unreachable": {
+    "exitCode": 2,
+    "route": "unreachable",
+    "results": [
+      {
+        "connection": 1,
+        "sent": "hello-neutrino",
+        "passed": false,
+        "outcome": "timeout"
+      }
+    ]
+  },
+  "healthyAfterFailure": {
+    "exitCode": 0,
+    "route": "mapping",
+    "results": [
+      {
+        "connection": 1,
+        "sent": "hello-neutrino",
+        "passed": true,
+        "outcome": "echo",
+        "received": "hello-neutrino",
+        "bytes": 14
+      }
+    ]
+  },
+  "customMessage": {
+    "exitCode": 0,
+    "route": "mapping",
+    "results": [
+      {
+        "connection": 1,
+        "sent": "hello-01-03",
+        "passed": true,
+        "outcome": "echo",
+        "received": "hello-01-03",
+        "bytes": 11
+      }
+    ]
+  },
+  "trace": {
+    "exitCode": 0,
+    "output": [
+      "server | channelActive | thread=nioEventLoopGroup-2-1 | handlerObject=4",
+      "server | channelActive | thread=nioEventLoopGroup-2-1 | handlerObject=5",
+      "client | channelActive | thread=nioEventLoopGroup-2-2 | handlerObject=4",
+      "client | channelActive | thread=nioEventLoopGroup-2-1 | handlerObject=6",
+      "server | channelRead0 | thread=nioEventLoopGroup-2-1 | handlerObject=4",
+      "client | channelRead0 | thread=nioEventLoopGroup-2-2 | handlerObject=4",
+      "server | channelRead0 | thread=nioEventLoopGroup-2-1 | handlerObject=5",
+      "client | channelRead0 | thread=nioEventLoopGroup-2-1 | handlerObject=6",
+      "TRACE_PASS visitors=2 serverWorkerThreads=1 clientResponseObserved=true"
+    ]
+  },
+  "parentExitCode": 0,
+  "sessionStopped": true,
+  "labReport": {
+    "lesson": "01.01",
+    "executedAt": "2026-10-30T07:50:30.431555+00:00",
+    "scope": "loopback integration; no NAT or public-network validation",
+    "windowsTcpPipeCompat": true,
+    "mode": "demo",
+    "checks": [
+      {
+        "name": "direct_target",
+        "passed": true,
+        "bytes": 14
+      },
+      {
+        "name": "proxy_roundtrip",
+        "passed": true,
+        "bytes": 14,
+        "sha256": "9ddc4781a5d61653c398969b82404dc6c6429d25aaa6c7db0c04a94a31b8940a"
+      }
+    ],
+    "ports": {
+      "management": 63041,
+      "tunnel": 63042,
+      "mapping": 63043,
+      "target": 63047,
+      "rejectedMapping": 63044
+    },
+    "example": {
+      "sent": "hello-neutrino",
+      "received": "hello-neutrino"
+    },
+    "stoppedBy": "stop_requested",
+    "temporaryStateRemoved": true,
+    "java": "openjdk version \"21.0.10\" 2026-01-20 LTS",
+    "python": "3.14.6",
+    "sourceCommit": "512d709d23fbb4f79278babdffe7dbba107958ba",
+    "jars": {
+      "server": "dea90dfeff122b9fddcf9288fcc1e6a9f770cbc4d0ddac0132527735f1d91cad",
+      "client": "e4afe4c48e893a02443e7acc4859271a1d88c8f96269bffc71a539fad4fdb100"
+    }
+  },
+  "executedAt": "2026-10-30T07:50:30.431555+00:00",
+  "teachingScripts": {
+    "project_overview.py": "544e9d9c707cb742978214abe292e08d7610755548eec7bcbeb6825c503dba6f",
+    "lab_request.py": "18c3b6a3b4bd2c518f70c0ed19e60eab71a60b0094e9ca6bd8c6cd840f401aea",
+    "TraceChannels.java": "8b02e2dcdaa6e57d50d03497d99be461493030196bb040230360288478afabfa"
+  }
+}

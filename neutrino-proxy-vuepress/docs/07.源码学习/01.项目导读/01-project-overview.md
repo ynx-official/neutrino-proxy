@@ -66,21 +66,128 @@ sourceExcerpts:
 
 关联文档：[学习目录](/learn/)、[源码引用规范](/learn/authoring/)、[技术栈与依赖地图](/learn/technology-stack/)、[本地调试](/learn/local-debugging/)
 
-如果你平时已经能写 Java 接口，这个项目最值得玩的地方，就是看看接口之外那些长连接在忙什么。我们挑一条 TCP 请求，从它敲开服务端的门，一直跟到内网目标回话。先不用把 Netty 全学完，遇到哪个点，再顺手拆哪个点。整篇可以分两次读，代码多的地方点开原文件一起看。
+先读 [01.02 技术选型](/learn/technology-stack/)，知道 Solon、Netty 和数据库各自负责什么。这一篇接着用架构与流程把它们放回项目：谁配置、谁连接、字节往哪儿走。核心表看完后再做回显实验，最后按需进入源码导读。
 
 <span id="本篇要解决的问题"></span>
 
-## 先带着几个小问题往下看
+<span id="先带着几个小问题往下看"></span>
 
-先别急着翻答案，看看下面哪一个问题让你停了一下：
+## 先认四个角色，再跑一句话
 
-- 为什么内网中的 Java 客户端需要主动连接代理服务端？
-- 管理后台、Java 服务端、Java 客户端和真实目标服务分别承担什么职责？
-- 一个外部访问者会涉及哪四类 Channel？谁负责建立这些连接？
-- 服务端如何把新访问者与内网目标连接关联起来？
-- 管理接口登录成功、隧道连接成功、License 认证成功、目标服务可用，为什么是四种不同状态？
+适合已经写过 Java 接口、但没系统接触过 Netty 的同学。准备 Java 21、Maven、Python 3.10+，给第一次构建和实验留出约 20～30 分钟；首次下载 Maven 依赖可能更久。
 
-前置知识：Java 接口与方法调用、基本 TCP 客户端/服务端概念、普通 HTTP API 开发经验。异步回调不熟悉时，先把 `addListener` 理解为“连接结果确定后执行的逻辑”，之后到 [Netty 基础](/learn/netty-bootstrap/)补齐。
+| 角色 | 在这次实验里是谁 | 负责什么 |
+| --- | --- | --- |
+| 访问者 | Python 脚本发起的 TCP 请求 | 向映射端口发送一句话 |
+| 代理服务端 server | 项目的服务端 JAR | 接住请求，经隧道交给客户端 |
+| Java 客户端 client | 项目的客户端 JAR | 主动连接服务端，并连接目标 |
+| 目标服务 | Python Echo 服务 | 收到什么字节，就回什么字节 |
+
+```text
+先建立控制连接：client ──主动连接──> server
+
+请求：访问者 → server 映射端口 → 数据隧道 → client → Echo
+响应：访问者 ← server 映射端口 ← 数据隧道 ← client ← Echo
+```
+
+**这里的数据方向，不等于 TCP 建连方向。** 控制连接、数据隧道都是 client 主动连 server。server 把消息写进已经建立的连接，不需要再从公网拨一条新连接进内网。管理后台用于配置，不在这句话的转发路径中。
+
+## 先看整体流程，再理解配置数据
+
+![正常 TCP 转发的四个角色、隧道建连方向、请求与响应方向](/learning/normal-tcp-flow.svg)
+
+<a href="../../learning/normal-tcp-flow.html" target="_self">打开流程图大图</a>。图的上方是建连方向，下方是已经建立连接中的数据方向。目标服务可以是 Echo、HTTP 服务或其他 TCP 服务，图中先省略 TLS、UDP 与异常分支。
+
+业务要分两条流程看：
+
+| 流程 | 发生什么 | 主要技术 |
+| --- | --- | --- |
+| 管理配置 | 用户登录 → 准备 License 与可用端口 → 创建映射 → 保存配置 | Solon、业务 Service、MyBatis-Plus、数据库 |
+| 使用代理 | client 认证 → server 加载启用映射并监听 → 访问者接入 → client 连接目标与数据隧道 → 双向转发 | Netty、代理协议、内存中的连接关系 |
+
+这里先以“client 离线时创建配置，之后再上线”的普通场景说明顺序。在线修改映射还有动态更新流程，留到 [04.06](/learn/runtime-consistency/)继续讲。
+
+有几个业务对象需要先认识：用户回答“配置属于谁”，License 回答“客户端使用哪份业务授权”，端口池回答“哪些入口允许使用”，端口映射回答“这个入口转去哪里”。**表里的配置，需要被应用读取并转成运行中的监听和连接，才参与真实访问。**
+
+接着读 [04.01 业务表设计与关系图](/learn/database-model/)，看清这些对象为什么拆开、用什么字段关联，再回来跑下面的实验。数据库表不会替你保存一个还活着的 TCP Socket；运行中的 Channel 关系保存在进程内存里。
+
+## 第一次动手：只验正常回显
+
+### 第一步 检查环境并构建
+
+打开 PowerShell，进入仓库根目录，也就是能看到 `pom.xml` 和 `scripts` 的目录。下面用本机路径举例，仓库放在别处就换成自己的路径。
+
+```powershell
+Set-Location D:\study\neutrino-proxy
+java -version
+mvn -version
+python --version
+mvn -B -pl neutrino-proxy-server,neutrino-proxy-client -am package
+```
+
+预期：Java 和 Maven 显示的 JDK 都是 21，Python 至少为 3.10；最后看到 Maven 的 `BUILD SUCCESS`。继续确认两个产物都存在：
+
+```powershell
+Test-Path neutrino-proxy-server/target/neutrino-proxy-server.jar
+Test-Path neutrino-proxy-client/target/neutrino-proxy-client.jar
+```
+
+两行都应输出 `True`。改过 Java 源码就重新构建，这个实验运行的是 JAR。
+
+### 第二步 发送 hello-neutrino
+
+本次 Windows 环境使用下面的命令；Linux/macOS 去掉 `--windows-tcp-pipe`，路径按自己的终端调整。
+
+```powershell
+python scripts/learning/project_overview.py --mode demo --windows-tcp-pipe
+$LASTEXITCODE
+```
+
+`demo` 只做目标直连与代理往返。脚本自动启动真实 server、client 和 Echo，在新建的临时 H2 中创建实验配置；不需要先准备 MySQL 或手工填 License。结束时停止本轮进程并清理临时状态。
+
+预期看到的关键字段如下。这是完整输出的节选，端口数字每次不同：
+
+```json
+{
+  "mode": "demo",
+  "checks": [
+    { "name": "direct_target", "passed": true, "bytes": 14 },
+    { "name": "proxy_roundtrip", "passed": true, "bytes": 14 }
+  ],
+  "example": { "sent": "hello-neutrino", "received": "hello-neutrino" },
+  "temporaryStateRemoved": true
+}
+```
+
+**验收看三处：** 两项 `passed` 都是 `true`，发送和接收都是 `hello-neutrino`，最后的退出码是 `0`。这句话是 14 个 UTF-8 字节。脚本按长度累加接收，不假设一次 `recv` 就拿到完整结果。
+
+[查看正常回显的实测记录](/labs/first-echo-result.json)。它证明本机真实进程的正常链路可用；公网 NAT、防火墙和跨机器 TLS 需要另外验证。
+
+### 第三步 对照结果排错
+
+| 停在哪里 | 怎么查 | 继续的条件 |
+| --- | --- | --- |
+| 找不到 java、mvn 或 python | 分别执行上面的版本命令；在新终端确认 PATH | 三个命令都能运行，Java/Maven 使用 JDK 21 |
+| Maven 编译失败 | 从第一条编译错误往下看；先比较 `java -version` 与 `mvn -version` 的 Java 版本 | 构建输出 `BUILD SUCCESS` |
+| 提示 `Build first` | 执行构建，再跑两个 `Test-Path` | 两个 JAR 都存在 |
+| `PipeImpl` / `UnixDomainSockets.connect` 报 `Invalid argument` | Windows 使用本节命令中的兼容参数；原因见下方“Windows 本机启动兼容参数” | JVM 能继续启动到代理初始化 |
+| `Local readiness timed out` 或进程提前退出 | 读终端输出的错误类型；进程提前退出时还会附脱敏日志尾部。重跑保留最早的异常；若以前成功，先检查是否构建了新 JAR | 先有 `direct_target`，再有 `proxy_roundtrip` |
+| 退出码 1，且有不可达目标检查 | 核对是否漏了 `--mode demo`；默认 `full` 会执行故障检查 | 第一次先完成两项正常检查，故障结果另行阅读 |
+
+想自己反复发消息、查看当轮端口，继续 [01.03 双终端实验](/learn/local-debugging/)。这一篇的单次实验已经结束，报告里的端口现在不能继续连接。
+
+<details>
+<summary>先试着回答，再展开参考答案</summary>
+
+1. 谁主动建立隧道？——Java client。内网侧通常更容易向外发起连接。
+2. Echo 要认识代理协议吗？——不用。client 还原业务字节，Echo 只收到 `hello-neutrino`。
+3. 现在能宣称公网穿透成功吗？——还不能。本次是本机回环集成，只验证协议和转发路径。
+
+</details>
+
+## 第二遍阅读：把回显放回源码
+
+接下来会遇到四类 Channel、认证和异步绑定。先记住 `Channel` 是进程里表示网络连接的对象；不熟悉的 Netty 细节可以边读边查。源码入口表用于定位，读完一条主线再回来翻就好。
 
 <span id="项目源码入口"></span>
 
@@ -408,7 +515,11 @@ TLS 隧道保护的是 client 到 server 这一段；访问者到 server、clien
 
 <span id="动手实验与验收"></span>
 
-## 动手试一小步
+<span id="动手试一小步"></span>
+
+## 进阶动手：观察故障边界
+
+正常回显已经完成。下面保留完整故障实验，想继续排障时再做；这组实验当前有一项已知失败。
 
 **动手试试**：用一个本地 TCP Echo 目标，运行真实服务端和 Java 客户端；验证字节往返，停止管理调用后的转发，并注入不可达目标与客户端退出。
 
@@ -418,7 +529,7 @@ TLS 隧道保护的是 client 到 server 这一段；访问者到 server、clien
 
 ```powershell
 mvn -B -pl neutrino-proxy-server,neutrino-proxy-client -am package
-python scripts/learning/project_overview.py
+python scripts/learning/project_overview.py --mode full
 ```
 
 脚本位于 `scripts/learning/project_overview.py`。它会启动两个真实 Java JAR 和 Python Echo 服务，使用新建临时目录及本地 H2，通过本地管理 API 创建独立的测试 License、端口池和两条 TCP 映射。认证值只在临时进程配置中使用，不写入结果报告。
@@ -434,7 +545,7 @@ python scripts/learning/project_overview.py
 遇到同样的栈时，本地实验可以运行：
 
 ```powershell
-python scripts/learning/project_overview.py --windows-tcp-pipe --report neutrino-proxy-vuepress/docs/public/labs/project-overview-result.json
+python scripts/learning/project_overview.py --mode full --windows-tcp-pipe --report neutrino-proxy-vuepress/docs/public/labs/project-overview-result.json
 ```
 
 该选项只给本轮 JVM 设置 `jdk.net.unixdomain.tmpdir`，指向临时目录下一个不存在的子目录，使 JDK 21 的管道建立走 TCP 回退；没有修改 Java 项目源码或全局 JDK 配置，也没有更换 NIO Provider。这是针对上述本机环境的实验参数，不作为所有 JDK 的通用启动建议。回退逻辑与目录属性可对照 [OpenJDK PipeImpl](https://github.com/openjdk/jdk21u/blob/master/src/java.base/windows/classes/sun/nio/ch/PipeImpl.java) 和 [UnixDomainSocketsUtil](https://github.com/openjdk/jdk21u/blob/master/src/java.base/windows/classes/sun/nio/ch/UnixDomainSocketsUtil.java)。
@@ -497,6 +608,6 @@ python scripts/learning/project_overview.py --windows-tcp-pipe --report neutrino
 5. 为什么访问者已经握手成功，仍要暂停 AUTO_READ？——目标与数据通道尚在异步建立，绑定条件未满足。
 6. 管理浏览器关闭与整个 ProxyServer 停止有什么区别？——前者离开管理界面，后者停止同时承载管理与转发的进程。
 7. 本机 Echo 成功能证明 NAT 和 TLS 配置正确吗？——本实验没有覆盖这两个部署边界。
-8. 为什么实验退出码 1 仍值得保留？——它记录了未满足的故障断言，避免把设计意图写成实际结果。
+8. 为什么 full 实验退出码 1 仍值得保留？——它记录了未满足的故障断言，避免把设计意图写成实际结果。
 
 下一篇阅读[01.02 技术栈与依赖地图](/learn/technology-stack/)。希望先熟悉调试方式，可以进入[01.03 本地调试与第一条 TCP 映射](/learn/local-debugging/)；协议字段与半包问题留到[协议课程](/learn/protocol-frame/)系统展开。

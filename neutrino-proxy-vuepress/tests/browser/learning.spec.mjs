@@ -8,6 +8,14 @@ for (const width of [1440, 390]) {
     await expect(page.locator('.vp-doc')).not.toContainText('章节已规划，正文待完善')
     await expect(page.locator('.vp-doc')).toContainText('状态：Review')
     await expect(page.locator('.vp-doc [id="完善清单"]')).toHaveCount(1)
+    await expect(page.locator('.vp-doc')).toContainText('第一次动手：只验正常回显')
+    const demo = page.locator('.vp-doc').getByRole('link', { name: '查看正常回显的实测记录', exact: true })
+    const demoResponse = await page.request.get(await demo.getAttribute('href'))
+    expect(demoResponse.status()).toBe(200)
+    const demoResult = await demoResponse.json()
+    expect(demoResult.mode).toBe('demo')
+    expect(demoResult.checks.every(check => check.passed)).toBe(true)
+    expect(demoResult.example).toEqual({ sent: 'hello-neutrino', received: 'hello-neutrino' })
     await expect(page.locator('.vp-doc div.language-java')).toHaveCount(7)
     const outbound = page.locator('.vp-doc div.language-java').first()
     await outbound.hover()
@@ -29,6 +37,66 @@ for (const width of [1440, 390]) {
 }
 
 for (const width of [1440, 390]) {
+  test(`technology, flow and business model figures at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('./learn/')
+    const startingPoint = page.locator('.vp-doc tbody').first().getByRole('link', { name: '01.02 技术栈与依赖地图', exact: true })
+    await startingPoint.click()
+    await expect(page).toHaveURL(/\/learn\/technology-stack\/$/)
+    await expect(page.locator('.vp-doc')).toContainText('先有问题，才有技术选择')
+    for (const [route, filename] of [['project-overview', 'normal-tcp-flow'], ['database-model', 'core-business-model']]) {
+      await page.goto(`./learn/${route}/`)
+      const figure = page.locator(`.vp-doc img[src$="${filename}.svg"]`)
+      await figure.scrollIntoViewIfNeeded()
+      await expect(figure).toBeVisible()
+      await expect.poll(() => figure.evaluate(img => img.naturalWidth)).toBeGreaterThan(0)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      await page.screenshot({ path: `test-results/${filename}-${width}.png` })
+      const full = page.locator(`.vp-doc a[href$="${filename}.html"]`)
+      const response = await page.request.get(await full.evaluate(link => link.href))
+      expect(response.status()).toBe(200)
+      expect(await response.text()).toContain('aria-labelledby=')
+      await full.click()
+      await expect(page.locator('svg[role="img"]')).toBeVisible()
+      const bounds = await page.locator('svg').evaluate(svg => {
+        const box = svg.viewBox.baseVal
+        return [...svg.querySelectorAll('text')].every(text => {
+          const rect = text.getBBox()
+          return rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= box.width && rect.y + rect.height <= box.height
+        })
+      })
+      expect(bounds).toBe(true)
+    }
+  })
+
+  test(`guided reader sessions, answers and trace report at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    for (const route of ['local-debugging', 'netty-reactor', 'client-target-connection']) {
+      await page.goto(`./learn/${route}/`)
+      await expect(page.locator('.vp-doc')).toContainText('LAB_READY')
+      await page.screenshot({ path: `test-results/${route}-intro-${width}.png` })
+      const answer = page.locator('.vp-doc details').filter({ has: page.locator('summary').filter({ hasText: /^1\./ }) }).first()
+      await answer.locator('summary').click()
+      await expect(answer).toHaveAttribute('open', '')
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+      const ids = await page.locator('.vp-doc [id]').evaluateAll(nodes => nodes.map(node => node.id))
+      expect(new Set(ids).size).toBe(ids.length)
+      await page.locator('.vp-doc').getByRole('heading', { name: /^自测与参考答案/ }).scrollIntoViewIfNeeded()
+      await page.screenshot({ path: `test-results/${route}-answers-${width}.png` })
+    }
+    const report = page.locator('.vp-doc').getByRole('link', { name: '查看正常与坏目标的实际记录', exact: true })
+    const response = await page.request.get(await report.getAttribute('href'))
+    expect(response.status()).toBe(200)
+    const result = await response.json()
+    expect(result.trace.exitCode).toBe(0)
+    expect(result.trace.output.at(-1)).toContain('TRACE_PASS')
+    expect(result.unreachable.exitCode).toBe(2)
+    expect(result.unreachable.results[0].passed).toBe(false)
+    expect(result.healthyAfterFailure.exitCode).toBe(0)
+    expect(result.customMessage.results[0].received).toBe('hello-01-03')
+    expect(result.sessionStopped).toBe(true)
+  })
+
   test(`source learning navigation, completed client lesson and source references at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('./')
@@ -55,7 +123,9 @@ for (const width of [1440, 390]) {
     const sidebar = page.locator('.VPSidebar')
     await expect(sidebar.getByRole('link')).toHaveCount(62)
     await expect(sidebar).not.toContainText('安装部署')
-    const protocol = sidebar.getByRole('link', { name: '06.02 编码器如何计算长度并写入字段', exact: true })
+    await sidebar.getByRole('link', { name: '01 项目全景与内网穿透边界', exact: true }).scrollIntoViewIfNeeded()
+    await sidebar.screenshot({ path: `test-results/learning-sidebar-${width}.png` })
+    const protocol = sidebar.getByRole('link', { name: '02 编码器如何计算长度并写入字段', exact: true })
     await protocol.scrollIntoViewIfNeeded()
     await protocol.click()
     await expect(page).toHaveURL(/\/learn\/protocol-encoder\/$/)

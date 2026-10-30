@@ -8,8 +8,8 @@
 ## 当前项目
 
 - [文档站官方格式整理与验证](06-delivery/native-documentation-authoring.md)：原生 Markdown、首页与导航配置，旧链接和书签的兼容边界及实际验证。
-- [源码学习课程完善进度](06-delivery/source-learning-progress.md)：60 篇全文完善、朋友式引导写法、源码与实验验证的范围和实际进度。
-- [源码学习目录与学习路线](../neutrino-proxy-vuepress/docs/07.源码学习/00-index.md)：面向 3 年经验开发者的 12 个专题、60 篇正文已补齐，Java 主线 56 篇，桌面端进阶 4 篇；原样源码节选、调用链和动手练习均已核对，实测范围与待验证项分别说明。
+- [源码学习课程完善进度](06-delivery/source-learning-progress.md)：技术选型、流程与表设计优先的学习顺序，以及首批可跟做教程、实验工具和实际验证范围。
+- [源码学习目录与学习路线](../neutrino-proxy-vuepress/docs/07.源码学习/00-index.md)：面向 3 年经验开发者的 12 个专题、60 篇正文已补齐，Java 主线 56 篇，桌面端进阶 4 篇；原样源码节选与调用链已核对；首批四篇补齐逐步实验，其余练习继续完善，实测与待验证项分别说明。
 - [文章写作与源码引用规范](../neutrino-proxy-vuepress/docs/07.源码学习/01-authoring.md)：项目代码节选、提交与行号、删节及教学简化标记、实验和状态记录。
 - [01.01 项目全景与内网穿透边界](../neutrino-proxy-vuepress/docs/07.源码学习/01.项目导读/01-project-overview.md)：模块边界、四类 Channel、真实代码与 TCP 调用链；附可重复实验和不可达目标的实际失败记录。
 - [文档站构建与部署](05-operations/documentation-site.md)：VitePress、旧链接、根/子路径、CI、GitHub Pages 自定义域名与手动发布。
