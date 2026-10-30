@@ -1,0 +1,52 @@
+{
+  "lesson": "01.01",
+  "executedAt": "2026-10-30T03:20:34.907790+00:00",
+  "scope": "loopback integration; no NAT or public-network validation",
+  "windowsTcpPipeCompat": true,
+  "checks": [
+    {
+      "name": "direct_target",
+      "passed": true,
+      "bytes": 65536
+    },
+    {
+      "name": "proxy_roundtrip",
+      "passed": true,
+      "bytes": 65536,
+      "sha256": "7daca2095d0438260fa849183dfc67faa459fdf4936e1bc91eec6b281b27e4c2"
+    },
+    {
+      "name": "transfer_without_management_calls",
+      "passed": true
+    },
+    {
+      "name": "unreachable_target_closes_visitor",
+      "passed": false,
+      "observed": "visitor did not close within 3 seconds",
+      "timeoutSeconds": 3
+    },
+    {
+      "name": "unreachable_target_isolated",
+      "passed": true
+    },
+    {
+      "name": "client_disconnect",
+      "passed": true
+    }
+  ],
+  "ports": {
+    "management": 56969,
+    "tunnel": 56970,
+    "mapping": 56971,
+    "target": 56973,
+    "rejectedMapping": 56972
+  },
+  "temporaryStateRemoved": true,
+  "java": "openjdk version \"21.0.10\" 2026-01-20 LTS",
+  "python": "3.14.6",
+  "sourceCommit": "4512bb867489e43f80d08be58dc9c2107106b27f",
+  "jars": {
+    "server": "dea90dfeff122b9fddcf9288fcc1e6a9f770cbc4d0ddac0132527735f1d91cad",
+    "client": "e4afe4c48e893a02443e7acc4859271a1d88c8f96269bffc71a539fad4fdb100"
+  }
+}

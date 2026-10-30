@@ -14,9 +14,17 @@ export function buildNavigation(pages) {
   ]))
   const sidebar = {}
   for (const [name, documents] of Object.entries(sections)) {
-    const items = name === 'history'
+    let items = name === 'history'
       ? [{ text: '历史站点资料', collapsed: false, items: documents.map(page => ({ text: page.title, link: page.route })) }]
       : buildSidebar(documents, { stripRoot: true })
+    const introductionTitle = { learning: '源码学习', support: '个人赞赏' }[name]
+    const firstGroupIndex = items.findIndex(item => item.items)
+    if (introductionTitle && firstGroupIndex > 0) {
+      items = [
+        { text: introductionTitle, collapsed: false, items: items.slice(0, firstGroupIndex) },
+        ...items.slice(firstGroupIndex),
+      ]
+    }
     // Public URLs are opaque legacy permalinks; their source directories determine the section.
     for (const page of documents) sidebar[page.route] = items
   }

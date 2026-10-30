@@ -9,6 +9,7 @@
 
 - [源码学习目录与学习路线](../neutrino-proxy-vuepress/docs/07.源码学习/00-index.md)：面向 3 年经验开发者的 12 个专题、60 篇章节，Java 主线 56 篇，桌面端进阶 4 篇；正文按 Draft 提纲逐篇完善。
 - [文章写作与源码引用规范](../neutrino-proxy-vuepress/docs/07.源码学习/01-authoring.md)：项目代码节选、提交与行号、删节及教学简化标记、实验和状态记录。
+- [01.01 项目全景与内网穿透边界](../neutrino-proxy-vuepress/docs/07.源码学习/01.项目导读/01-project-overview.md)：模块边界、四类 Channel、真实代码与 TCP 调用链；附可重复实验和不可达目标的实际失败记录。
 - [文档站构建与部署](05-operations/documentation-site.md)：VitePress、旧链接、根/子路径、CI、GitHub Pages 自定义域名与手动发布。
 - [VitePress 迁移与验收](06-delivery/vitepress-migration.md)：迁移范围、内容基线、设计与实际验证。
 

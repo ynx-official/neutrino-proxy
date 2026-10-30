@@ -1,6 +1,34 @@
 import { test, expect } from '@playwright/test'
 
 for (const width of [1440, 390]) {
+  test(`completed project overview code, lab and bounds at ${width}px`, async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('./learn/project-overview/')
+    await expect(page.locator('.vp-doc')).not.toContainText('章节已规划，正文待完善')
+    await expect(page.locator('.vp-doc')).toContainText('状态：Review')
+    await expect(page.locator('.vp-doc [id="完善清单"]')).toHaveCount(1)
+    await expect(page.locator('.vp-doc div.language-java')).toHaveCount(7)
+    const outbound = page.locator('.vp-doc div.language-java').first()
+    await outbound.hover()
+    await outbound.locator('button.copy').click()
+    await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('cmdTunnelBootstrap.connect()')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: `test-results/overview-intro-${width}.png` })
+    await page.locator('.vp-doc').getByRole('heading', { name: /^4 本次实际结果/ }).scrollIntoViewIfNeeded()
+    await expect(page.locator('.vp-doc')).toContainText('未通过：3 秒内没有收到关闭或拒绝')
+    const report = page.locator('.vp-doc').getByRole('link', { name: '查看本次脱敏 JSON 实验记录', exact: true })
+    const response = await page.request.get(await report.getAttribute('href'))
+    expect(response.status()).toBe(200)
+    const result = await response.json()
+    expect(result.checks.find(check => check.name === 'proxy_roundtrip').passed).toBe(true)
+    expect(result.checks.find(check => check.name === 'unreachable_target_closes_visitor').passed).toBe(false)
+    expect(result.temporaryStateRemoved).toBe(true)
+    await page.screenshot({ path: `test-results/overview-lab-${width}.png` })
+  })
+}
+
+for (const width of [1440, 390]) {
   test(`source learning navigation, draft and source references at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('./')

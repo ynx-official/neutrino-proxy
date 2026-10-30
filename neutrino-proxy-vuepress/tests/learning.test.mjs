@@ -61,3 +61,22 @@ test('the authoring example preserves its verbatim project excerpt', () => {
   const source = readFileSync(resolve(siteRoot, '../neutrino-proxy-core/src/main/java/org/dromara/neutrinoproxy/core/ProxyMessageEncoder.java'), 'utf8').replace(/\r\n/g, '\n')
   assert.ok(source.includes(excerpt[1]), 'Example must remain a verbatim source excerpt')
 })
+
+test('the completed overview has traceable verbatim excerpts and a reproducible lab', () => {
+  const overview = readPages().find(page => page.route === '/learn/project-overview/')
+  assert.ok(['Review', 'Approved'].includes(overview.data.status))
+  assert.ok(!overview.content.includes('章节已规划，正文待完善'))
+  const excerpts = [...overview.content.matchAll(/```(java|xml)\n([\s\S]*?)\n```/g)]
+  assert.ok(excerpts.length >= 6)
+  assert.equal(excerpts.length, overview.data.sourceExcerpts.length)
+  for (const [index, reference] of overview.data.sourceExcerpts.entries()) {
+    const source = readFileSync(resolve(siteRoot, '..', reference.path), 'utf8').replace(/\r\n/g, '\n')
+    const actual = source.split('\n').slice(reference.startLine - 1, reference.endLine).join('\n')
+    assert.equal(excerpts[index][2], actual, reference.path)
+    assert.ok(overview.content.includes(`${reference.path}#L${reference.startLine}-L${reference.endLine}`))
+  }
+  assert.ok(overview.content.includes('python scripts/learning/project_overview.py'))
+  assert.ok(overview.content.includes('localhost'))
+  assert.ok(overview.content.includes('NAT'))
+  assert.ok(overview.content.includes('id="完善清单"'), 'Keep the original chapter bookmark after replacing the draft checklist')
+})
