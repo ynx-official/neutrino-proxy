@@ -1,13 +1,11 @@
 import { defineConfig } from 'vitepress'
-import container from 'markdown-it-container'
 import { readPages } from '../../scripts/content.mjs'
-import { buildNavigation } from '../../scripts/navigation.mjs'
+import { nav, sidebar } from './navigation.mjs'
 import { buildRewrites, normalizeBase } from '../../scripts/routes.mjs'
 import { legacySlugify } from '../../scripts/legacy-markdown.mjs'
 import { validateDomain, writeDeploymentFiles } from '../../scripts/deployment.mjs'
 
 const pages = readPages()
-const navigation = buildNavigation(pages)
 const base = normalizeBase(process.env.DOCS_BASE || '/')
 const domain = validateDomain(process.env.DOCS_DOMAIN || '', base)
 
@@ -25,8 +23,8 @@ export default defineConfig({
   ],
   themeConfig: {
     logo: '/img/logo.png',
-    nav: navigation.nav,
-    sidebar: navigation.sidebar,
+    nav,
+    sidebar,
     outline: { label: '本页目录', level: [2, 3] },
     socialLinks: [{ icon: 'github', link: 'https://github.com/ynx-official/neutrino-proxy' }],
     docFooter: { prev: '上一篇', next: '下一篇' },
@@ -54,55 +52,6 @@ export default defineConfig({
       },
     },
   },
-  transformPageData(page) {
-    const fm = page.frontmatter
-    if (fm.home) {
-      page.title = fm.heroText
-      fm.layout = 'home'
-      fm.hero = {
-        name: fm.heroText,
-        text: '中微子代理文档',
-        tagline: fm.tagline,
-        image: { src: fm.heroImage, alt: 'Neutrino Proxy' },
-        actions: [{ theme: 'brand', text: '开始使用', link: fm.actionLink }, { theme: 'alt', text: '后台操作指南', link: '/pages/793dcc/' }],
-      }
-    }
-  },
-  markdown: {
-    anchor: { slugify: legacySlugify },
-    config(md) {
-      md.use(container, 'center', { render: (tokens, index) => tokens[index].nesting === 1 ? '<div class="legacy-center">\n' : '</div>\n' })
-      // Keep original Markdown untouched. Supply title/archive content formerly rendered by Vdoing.
-      md.core.ruler.before('normalize', 'legacy-page-content', state => {
-        const page = pages.find(page =>
-          state.env.relativePath?.replaceAll('\\', '/') === page.source ||
-          (state.env.realPath || state.env.path)?.replaceAll('\\', '/').endsWith(`/${page.source}`))
-        if (!page) return
-        // A style immediately after legacy HTML shares its block. Separate it so
-        // VitePress extracts an SFC style instead of leaving it in the template.
-        state.src = state.src.replace(/(<\/(?:div|table)>[ \t]*\r?\n)(?=<style(?:\s|>))/g, '$1\n')
-        if (page.data.home) return
-        let prefix = /^# /m.test(page.content) ? '' : `# ${page.title}\n\n`
-        if (page.source.startsWith('02.常见问题/')) {
-          prefix += '::: info 历史主题文档\n以下为原 VuePress / Vdoing 配置说明，内容与旧链接保留供查阅；当前站点已迁移至 VitePress。\n:::\n\n'
-        }
-        if (page.data.archivesPage) {
-          prefix += pages.filter(item => item.route !== '/' && !item.data.archivesPage).map(item => `- [${item.title}](${item.route})`).join('\n') + '\n'
-        }
-        state.src = prefix + state.src.replace(/\]\(\/pages\/(088c16|33d574)\//g, '](https://doc.xugaoyi.com/pages/$1/')
-      })
-      // VitePress handles Markdown URLs itself; raw HTML needs the same base prefix.
-      for (const rule of ['html_block', 'html_inline']) {
-        const original = md.renderer.rules[rule]
-        md.renderer.rules[rule] = (tokens, index, options, env, self) => {
-          const html = original ? original(tokens, index, options, env, self) : tokens[index].content
-          return html
-            .replace(/\bsrc=(['"])(?:\.\/)?img\//g, (_, quote) => `src=${quote}/img/`)
-            // Bind public images at runtime so Vue does not import /<base>/img as a module.
-            .replace(/(?<![:\w])src=(['"])\/(?!\/)([^'"]*)\1/g, (_, quote, path) => `:src="$withBase('/${path}')"`)
-            .replace(/(?<![:\w])href=(['"])\/(?!\/)([^'"]*)\1/g, (_, quote, path) => `href=${quote}${base}${path}${quote}`)
-        }
-      }
-    },
-  },
+  // Keep existing VuePress heading bookmarks; new content uses native Markdown.
+  markdown: { anchor: { slugify: legacySlugify } },
 })

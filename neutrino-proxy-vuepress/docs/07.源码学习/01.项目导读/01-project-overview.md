@@ -66,11 +66,13 @@ sourceExcerpts:
 
 关联文档：[学习目录](/learn/)、[源码引用规范](/learn/authoring/)、[技术栈与依赖地图](/learn/technology-stack/)、[本地调试](/learn/local-debugging/)
 
-你已经能开发普通 Java 接口，现在面对的是一个同时处理业务配置和长连接转发的系统。本篇通过一条 TCP 请求，建立模块、网络连接和业务对象之间的对应关系。建议阅读 35～45 分钟，实验约 15 分钟；暂时不需要理解每个 Netty API。
+如果你平时已经能写 Java 接口，这个项目最值得玩的地方，就是看看接口之外那些长连接在忙什么。我们挑一条 TCP 请求，从它敲开服务端的门，一直跟到内网目标回话。先不用把 Netty 全学完，遇到哪个点，再顺手拆哪个点。整篇可以分两次读，代码多的地方点开原文件一起看。
 
-## 本篇要解决的问题
+<span id="本篇要解决的问题"></span>
 
-读完并完成实验后，你应能回答：
+## 先带着几个小问题往下看
+
+先别急着翻答案，看看下面哪一个问题让你停了一下：
 
 - 为什么内网中的 Java 客户端需要主动连接代理服务端？
 - 管理后台、Java 服务端、Java 客户端和真实目标服务分别承担什么职责？
@@ -80,7 +82,9 @@ sourceExcerpts:
 
 前置知识：Java 接口与方法调用、基本 TCP 客户端/服务端概念、普通 HTTP API 开发经验。异步回调不熟悉时，先把 `addListener` 理解为“连接结果确定后执行的逻辑”，之后到 [Netty 基础](/learn/netty-bootstrap/)补齐。
 
-## 项目源码入口
+<span id="项目源码入口"></span>
+
+## 这次先打开哪几个文件
 
 Java 节选固定在提交 `94cafdd1f36e1f64b316e10466a8f54912c75467`。本文共八段连续原样节选；方法中的其他部分没有混入教学改写。代码块用于阅读局部逻辑，完整类和外围作用域以源码链接为准。
 
@@ -97,11 +101,15 @@ Java 节选固定在提交 `94cafdd1f36e1f64b316e10466a8f54912c75467`。本文�
 
 同名 Handler 分别位于 server 和 client 包中。阅读时始终记录“模块 + 类 + 方法”，不要只凭类名跳转。
 
-## 正文提纲
+<span id="正文提纲"></span>
 
-本篇按“场景与边界 → 模块与端口 → 控制连接 → 访问者建链 → 数据往返 → 故障与实验”展开。下面的调用链是跨进程、跨异步事件的时序关系，箭头不表示同一个线程中的连续 Java 调用。
+## 一起顺着代码走
 
-### 1 先明确内网穿透解决什么问题
+我们就按“为什么需要它 → 谁在干活 → 连接怎么接上 → 数据怎么回来”走一趟。看到箭头时记得留个心眼：它可能跨了进程，也可能跨了异步回调，未必是同一条 Java 调用栈。
+
+<span id="_1-先明确内网穿透解决什么问题"></span>
+
+### 1 内网里的服务 怎么让外面的人访问
 
 假设一台内网机器运行了业务服务。它能访问互联网，但外部用户没有可直接访问它的公网入口，或者入站连接受 NAT、路由和防火墙限制。
 
@@ -118,7 +126,9 @@ NAT 会为允许的出站连接维护相应状态。这里利用客户端主动�
 
 学习时尤其要注意 `localhost` 的位置：映射中的 `127.0.0.1` 由 Java 客户端去连接，指向客户端所在机器。若客户端位于容器，目标也是从该容器网络空间解释的；目标服务也可以是该客户端能够访问的另一台局域网机器。
 
-### 2 模块划分与运行进程
+<span id="_2-模块划分与运行进程"></span>
+
+### 2 先给这几个模块认认门
 
 出处：`pom.xml`，第 19～23 行，[查看原文件](https://github.com/ynx-official/neutrino-proxy/blob/94cafdd1f36e1f64b316e10466a8f54912c75467/pom.xml#L19-L23)。以下连续原样节选，外围作用域见原文件。
 
@@ -145,7 +155,9 @@ NAT 会为允许的出站连接维护相应状态。这里利用客户端主动�
 
 可以把管理配置和数据转发分别理解为管理面与数据面。这是阅读职责的方式：两者当前都包含在同一个 server Java 应用中。关闭浏览器不会结束后台转发，停止整个服务端进程则会中断它。
 
-### 3 四类端口与四类 Channel
+<span id="_3-四类端口与四类-channel"></span>
+
+### 3 端口和 Channel 先别混成一件事
 
 端口表示监听入口，Channel 表示某一端持有的连接对象；它们不是一对一关系。很多客户端连接可以进入同一个隧道监听端口。
 
@@ -178,7 +190,9 @@ NAT 会为允许的出站连接维护相应状态。这里利用客户端主动�
 
 控制连接与数据连接可以进入同一个服务端隧道端口，它们仍是不同 TCP 连接，具有不同的生命周期。服务端和客户端使用 `visitorId`、License 以及 Channel 属性关联它们。
 
-### 4 控制连接建立后 先认证再初始化映射
+<span id="_4-控制连接建立后-先认证再初始化映射"></span>
+
+### 4 客户端先来报到 连上了还得过认证
 
 客户端启动主线如下：
 
@@ -233,7 +247,9 @@ server.ProxyTunnelChannelHandler.channelRead0
 
 若客户端离线时先创建映射，配置会留在数据库，认证后的初始化负责读取它们；在线时变更映射，则还有管理 Service 到 `VisitorChannelService` 的动态更新路径，详见[配置动态生效课程](/learn/runtime-consistency/)。
 
-### 5 访问者接入后 服务端发出 CONNECT
+<span id="_5-访问者接入后-服务端发出-connect"></span>
+
+### 5 访问者来了 先等后半段接好
 
 访问者到达映射端口后：
 
@@ -263,7 +279,9 @@ server.TcpVisitorChannelHandler.channelActive
 
 `visitorId` 让同一控制连接下的多个访问者能够被区分。它与目标地址一起告诉客户端：为哪次访问、连接哪个内网服务。
 
-### 6 客户端连接目标 并绑定数据通道
+<span id="_6-客户端连接目标-并绑定数据通道"></span>
+
+### 6 客户端去敲目标服务的门
 
 客户端 CONNECT 处理器先解析目标地址，再异步执行 `realServerBootstrap.connect(ip, port)`。目标连接成功后暂时关闭其自动读取，再调用 `borrowTcpProxyChanel` 获取或创建数据通道。
 
@@ -293,7 +311,9 @@ server.TcpVisitorChannelHandler.channelActive
 
 客户端随后会打开目标连接的自动读取。后续字节仍沿同一条数据连接发送，TCP 顺序以及服务端的消息处理顺序使建链帧先于后续载荷进入处理链。
 
-### 7 服务端补齐另一侧关联 再恢复访问者读取
+<span id="_7-服务端补齐另一侧关联-再恢复访问者读取"></span>
+
+### 7 把两端配上对 数据才知道往哪儿走
 
 出处：`neutrino-proxy-server/src/main/java/org/dromara/neutrinoproxy/server/proxy/handler/ProxyMessageConnectHandler.java`，第 83～89 行，[查看原文件](https://github.com/ynx-official/neutrino-proxy/blob/94cafdd1f36e1f64b316e10466a8f54912c75467/neutrino-proxy-server/src/main/java/org/dromara/neutrinoproxy/server/proxy/handler/ProxyMessageConnectHandler.java#L83-L89)。以下连续原样节选，外围作用域见原文件。
 
@@ -311,7 +331,9 @@ server.TcpVisitorChannelHandler.channelActive
 
 这时一次普通 TCP 访问的四类连接才形成可转发的完整路径。实现里存在数据通道池相关方法，但正常断开的一些分支会直接关闭连接；复用效果需要对照实际关闭路径，留到[连接池与清理课程](/learn/client-pool-cleanup/)验证。
 
-### 8 业务字节如何往返
+<span id="_8-业务字节如何往返"></span>
+
+### 8 终于可以把请求送过去了
 
 服务端接收访问者字节后，把数据装进 TRANSFER 消息：
 
@@ -368,7 +390,9 @@ server.TcpVisitorChannelHandler.channelRead0
 
 [client.RealServerChannelHandler](https://github.com/ynx-official/neutrino-proxy/blob/94cafdd1f36e1f64b316e10466a8f54912c75467/neutrino-proxy-client/src/main/java/org/dromara/neutrinoproxy/client/core/RealServerChannelHandler.java) 负责把目标响应封装回隧道，[server.ProxyMessageTransferHandler](https://github.com/ynx-official/neutrino-proxy/blob/94cafdd1f36e1f64b316e10466a8f54912c75467/neutrino-proxy-server/src/main/java/org/dromara/neutrinoproxy/server/proxy/handler/ProxyMessageTransferHandler.java) 负责写回访问者。管理浏览器不出现在这条数据调用链中。
 
-### 9 故障边界与部署边界
+<span id="_9-故障边界与部署边界"></span>
+
+### 9 哪一步卡住 就先看哪一段
 
 | 现象 | 优先检查的位置 |
 | --- | --- |
@@ -382,9 +406,11 @@ TLS 隧道保护的是 client 到 server 这一段；访问者到 server、clien
 
 本章实验只验证本机真实进程之间的协议和转发，不能据此声称公网 NAT、防火墙、跨机器 TLS 或长时间负载已验证。
 
-## 动手实验与验收
+<span id="动手实验与验收"></span>
 
-**计划实验**：用一个本地 TCP Echo 目标，运行真实服务端和 Java 客户端；验证字节往返，停止管理调用后的转发，并注入不可达目标与客户端退出。
+## 动手试一小步
+
+**动手试试**：用一个本地 TCP Echo 目标，运行真实服务端和 Java 客户端；验证字节往返，停止管理调用后的转发，并注入不可达目标与客户端退出。
 
 ### 1 准备和运行
 
@@ -454,13 +480,15 @@ python scripts/learning/project_overview.py --windows-tcp-pipe --report neutrino
 
 这是根据现有分支作出的源码分析，实验已经证明的是“这次不可达目标场景在 3 秒窗口内没有结束访问者等待”。要确认根因与修复方案，还需在对应控制连接和处理器上加断点，追踪属性值与清理路径，参见[断开清理课程](/learn/server-disconnection/)。本篇保留失败记录，没有更改后端行为，也没有把 3 秒观察扩展成永远不会关闭的结论。
 
-**验收标准**：能够画出本次拓扑，标注四类 Channel、连接发起者和请求响应路径；从原始报告中区分正常转发成功与故障断言失败；能沿源码定位接下来应观察的方法。
+做完以后，拿张纸把四类 Channel 画出来，标上谁先发起连接，再把报告里的成功项和失败项分别放回图上。要是你已经知道下一步该在哪个方法打断点，这趟实验就没有白跑。
 
 <span id="完善清单"></span>
 
-## 复习与延伸
+<span id="复习与延伸"></span>
 
-先独立回答，再回到源码核对：
+## 合上代码前想一想
+
+给自己留半分钟，先凭刚才的理解答一下，再回代码找证据：
 
 1. 为什么只开放管理 Web 端口，仍可能无法使用 TCP 映射？——还需要隧道、映射入口和各段网络可达性。
 2. clientId、License 和 visitorId 分别对应什么？——客户端身份、业务授权和一次访问者关联。
@@ -472,4 +500,3 @@ python scripts/learning/project_overview.py --windows-tcp-pipe --report neutrino
 8. 为什么实验退出码 1 仍值得保留？——它记录了未满足的故障断言，避免把设计意图写成实际结果。
 
 下一篇阅读[01.02 技术栈与依赖地图](/learn/technology-stack/)。希望先熟悉调试方式，可以进入[01.03 本地调试与第一条 TCP 映射](/learn/local-debugging/)；协议字段与半包问题留到[协议课程](/learn/protocol-frame/)系统展开。
-

@@ -16,7 +16,7 @@ for (const page of readPages().filter(page => /^<style[\s>]/m.test(page.content)
       const result = compileTemplate({ source: `<div>${html}</div>`, filename: env.path, id: 'legacy-styles', isProd: false })
       assert.deepEqual(result.errors, [])
       const styles = env.sfcBlocks.styles.map(block => block.content).join('\n')
-      if (page.data.home) {
+      if (page.data.layout === 'home') {
         assert.match(styles, /\.become-sponsor/)
         assert.match(styles, /\.friends-item-img/)
         assert.ok(html.includes('redis-front.png'))

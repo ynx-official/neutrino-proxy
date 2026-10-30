@@ -1,5 +1,7 @@
 # VuePress 到 VitePress 迁移
 
+后续维护：2026-10-30 按用户要求整理原生写作格式和配置，最新实现及验证见[文档站官方格式整理与验证](native-documentation-authoring.md)；本文保留迁移当时的记录。
+
 状态：Review  
 最后更新：2026-10-30
 关联文档：[运维说明](../05-operations/documentation-site.md)、[文档索引](../README.md)、[项目约定](../../AGENTS.md)

@@ -29,7 +29,7 @@ for (const width of [1440, 390]) {
 }
 
 for (const width of [1440, 390]) {
-  test(`source learning navigation, draft and source references at ${width}px`, async ({ page }) => {
+  test(`source learning navigation, completed client lesson and source references at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('./')
     if (width < 768) {
@@ -43,9 +43,11 @@ for (const width of [1440, 390]) {
     await expect(page.locator('.vp-doc')).toContainText('12 个专题、60 篇章节')
     await page.locator('.vp-doc').getByRole('link', { name: '08.06 定时重连 可见性与并发边界', exact: true }).click()
     await expect(page).toHaveURL(/\/learn\/client-reconnection\/$/)
-    await expect(page.locator('.vp-doc')).toContainText('章节已规划，正文待完善')
+    await expect(page.locator('.vp-doc')).not.toContainText('章节已规划，正文待完善')
+    await expect(page.locator('.vp-doc')).toContainText('状态：Review')
     await expect(page.locator('.vp-doc')).toContainText('reconnect')
-    await expect(page.locator('.vp-doc strong').filter({ hasText: '计划实验' })).toHaveCount(1)
+    await expect(page.locator('.vp-doc strong').filter({ hasText: '动手试试' })).toHaveCount(1)
+    await expect(page.locator('.vp-doc div.language-java')).toHaveCount(3)
     await expect(page.locator('.vp-doc td').first()).toHaveText('client / ProxyClientService.java')
     const source = page.locator('.vp-doc a[href*="/neutrino-proxy/blob/"]').first()
     await expect(source).toHaveAttribute('href', /github\.com\/ynx-official\/neutrino-proxy\/blob\/[a-f0-9]{40}\//)
@@ -60,5 +62,24 @@ for (const width of [1440, 390]) {
     if (width < 768) await expect(page.locator('.VPBackdrop')).toBeHidden()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.screenshot({ path: `test-results/learning-${width}.png`, fullPage: true })
+  })
+
+  test(`protocol experiment preserves observations and report links at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('./learn/protocol-boundary-tests/')
+    await expect(page.locator('.vp-doc')).toContainText('refCnt 实际为 2')
+    await expect(page.locator('.vp-doc')).toContainText('本轮保留原实现和观察')
+    await expect(page.locator('.vp-doc div.language-java')).toHaveCount(2)
+    const report = page.locator('.vp-doc').getByRole('link', { name: '结果文件', exact: true })
+    const response = await page.request.get(await report.getAttribute('href'))
+    expect(response.status()).toBe(200)
+    const result = await response.json()
+    expect(result.checks).toHaveLength(25)
+    expect(result.checks.every(check => check.passed)).toBe(true)
+    expect(result.observations).toHaveLength(2)
+    expect(result.observations.every(value => value.includes('refCnt after channel cleanup=2'))).toBe(true)
+    expect(result.temporaryStateRemoved).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    await page.screenshot({ path: `test-results/protocol-lab-${width}.png`, fullPage: true })
   })
 }

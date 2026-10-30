@@ -1,0 +1,147 @@
+{
+  "repository": "https://github.com/ynx-official/neutrino-proxy-client-desktop",
+  "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+  "capturedFrom": "git show of the published origin/main commit; only quoted source ranges are stored",
+  "excerpts": [
+    {
+      "repository": "desktop",
+      "path": "crates/client-core/src/protocol.rs",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 61,
+      "endLine": 76,
+      "sourceSha256": "e44d3395e3da9b4dd93b45272eb402032698b3f1556417cf12a9eccb1d144574",
+      "excerptSha256": "dfabc6611f0fa3a09b84c4225ac853bc8e6eb3f207e8f636f251fb30e4fb2092",
+      "code": "    fn encode(&mut self, item: Frame, dst: &mut BytesMut) -> io::Result<()> {\n        let len = 13usize\n            .checked_add(item.info.len())\n            .and_then(|n| n.checked_add(item.data.len()))\n            .ok_or_else(invalid)?;\n        // ProxyMessageEncoder has a signed 32-bit body length, independent of decoder limits.\n        if len > i32::MAX as usize {\n            return Err(invalid());\n        }\n        dst.reserve(len + 4);\n        dst.put_u32(len as u32);\n        dst.put_u8(item.kind);\n        dst.put_i64(item.serial);\n        dst.put_u32(item.info.len() as u32);\n        dst.extend_from_slice(item.info.as_bytes());\n        dst.extend_from_slice(&item.data);"
+    },
+    {
+      "repository": "desktop",
+      "path": "crates/client-core/src/protocol.rs",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 122,
+      "endLine": 125,
+      "sourceSha256": "e44d3395e3da9b4dd93b45272eb402032698b3f1556417cf12a9eccb1d144574",
+      "excerptSha256": "f62a2575fda086a891f3082fe4bc14a21aaf4dbf5bec47697f028d606991147f",
+      "code": "        // ProxyMessageDecoder parses the normal 4-byte header AFTER Netty's stripping.\n        // Malformed combinations close the channel rather than copying Java's buffer leaks.\n        if bytes.len() < 17 {\n            return Err(invalid());"
+    },
+    {
+      "repository": "desktop",
+      "path": "crates/client-core/tests/protocol.rs",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 9,
+      "endLine": 24,
+      "sourceSha256": "14e2695c041c3c646fa5a1f7d61d06d45730f653ffbaa3e1720a47596f85caec",
+      "excerptSha256": "06535f76d70254b59f0eba1b5e52b89c0ef19f08fbba6b38dc6051d975080139",
+      "code": "fn auth_matches_java_wire_format() {\n    let mut bytes = BytesMut::new();\n    Codec\n        .encode(\n            Frame {\n                kind: 2,\n                serial: 0,\n                info: \"k,id\".into(),\n                data: vec![],\n            },\n            &mut bytes,\n        )\n        .unwrap();\n    assert_eq!(\n        &bytes[..],\n        &[0, 0, 0, 17, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, b'k', b',', b'i', b'd']"
+    },
+    {
+      "repository": "desktop",
+      "path": "crates/client-core/src/channel.rs",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 45,
+      "endLine": 49,
+      "sourceSha256": "8a1cb1f786f9612220b1108ed8db04d9c206201bcffccc9516fec5c8d92eaf49",
+      "excerptSha256": "dfbb9f433ccce0c6076269de91c14ba20c4f1f5b5098eaab494af68a8652a68c",
+      "code": "    /// Cancellation safe: offsets stay in the queue across select! polling.\n    /// Count a whole message until flush completes, just as Netty's outbound buffer does.\n    pub async fn flush_one(&mut self) -> io::Result<()> {\n        let Some((bytes, offset)) = self.queue.front_mut() else {\n            return Ok(());"
+    },
+    {
+      "repository": "desktop",
+      "path": "crates/client-core/src/engine.rs",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 239,
+      "endLine": 245,
+      "sourceSha256": "3b6b32035fdbfaf91e1d49689936c7a42e14f34eb172de5b2af8f8d0b26314dc",
+      "excerptSha256": "e637bab0e38b9019cc6a0b1beaef6b347c731278af86bce8b503e123caaae286",
+      "code": "            let session_cancel = cancel.child_token();\n            let tracker = TaskTracker::new();\n            let result = tokio::select! {_ = cancel.cancelled()=>None,result=self.run_session(&config,&secrets,tls.clone(),session_cancel.clone(),tracker.clone(), &mut connected_once)=>Some(result)};\n            session_cancel.cancel();\n            tracker.close();\n            tracker.wait().await;\n            let Some(result) = result else { break };"
+    },
+    {
+      "repository": "desktop",
+      "path": "crates/client-core/src/engine.rs",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 192,
+      "endLine": 198,
+      "sourceSha256": "3b6b32035fdbfaf91e1d49689936c7a42e14f34eb172de5b2af8f8d0b26314dc",
+      "excerptSha256": "8bd1806b8df77daa2535600761e7dcce764aa361c6e1e8526236def65fa582b2",
+      "code": "    pub async fn disconnect(&self) {\n        let mut running = self.0.running.lock().await;\n        self.0.startup_consumed.store(true, Ordering::Relaxed);\n        self.status(\"stopping\", \"正在断开连接\");\n        if let Some(previous) = running.take() {\n            previous.cancel.cancel();\n            let _ = previous.task.await;"
+    },
+    {
+      "repository": "desktop",
+      "path": "src/services/desktop.js",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 9,
+      "endLine": 18,
+      "sourceSha256": "1bea5e7476fd5d696efbfff7233c62759135451ad773773f7d1d1e801feee72b",
+      "excerptSha256": "daca9b1350ea0538ac13c2a653e3257056de76a135f6db25f7b498ea02e08c50",
+      "code": "export async function call(command, args = {}) {\n  if (testBridge()) return testBridge().invoke(command, args);\n  if (!isTauri())\n    throw new Error(\"请从桌面程序打开，浏览器预览不提供后台连接。\");\n  return invoke(command, args);\n}\nexport async function subscribe(callback, eventName = \"client-state\") {\n  if (testBridge()) return testBridge().subscribe(callback, eventName);\n  if (!isTauri()) return () => {};\n  return listen(eventName, (event) => callback(event.payload));"
+    },
+    {
+      "repository": "desktop",
+      "path": "src-tauri/src/main.rs",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 76,
+      "endLine": 82,
+      "sourceSha256": "85b91c156e60b284fdbf1b4f4abe556ac71849ea446b9e70efc1fa18ea4694d1",
+      "excerptSha256": "eaa647d4d39a0c56f3efbf9d5da1cb90aa68689a68bdf465dc990df58e7bbf29",
+      "code": "async fn connect(state: tauri::State<'_, AppState>) -> Result<(), String> {\n    connect_command(&state).await\n}\n#[tauri::command]\nasync fn disconnect(state: tauri::State<'_, AppState>) -> Result<(), String> {\n    state.engine.disconnect().await;\n    Ok(())"
+    },
+    {
+      "repository": "desktop",
+      "path": "src-tauri/src/main.rs",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 303,
+      "endLine": 312,
+      "sourceSha256": "85b91c156e60b284fdbf1b4f4abe556ac71849ea446b9e70efc1fa18ea4694d1",
+      "excerptSha256": "8a2c8110a2e9f492c58f66d2d9f974e3237963f71b955141e9c102eff16b21e8",
+      "code": "            let mut changes = engine.subscribe();\n            let handle = app.handle().clone();\n            tauri::async_runtime::spawn(async move {\n                loop {\n                    let snapshot = changes.borrow_and_update().clone();\n                    tray::update(&handle, &snapshot);\n                    if let Some(window) = handle.get_webview_window(\"main\") {\n                        let _ = window.emit_to(\"main\", \"client-state\", snapshot);\n                    }\n                    if changes.changed().await.is_err() {"
+    },
+    {
+      "repository": "desktop",
+      "path": "src-tauri/src/main.rs",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 116,
+      "endLine": 123,
+      "sourceSha256": "85b91c156e60b284fdbf1b4f4abe556ac71849ea446b9e70efc1fa18ea4694d1",
+      "excerptSha256": "01981094d85e93533aebaf7f7cbe17a00abcfe75ffd3345b24085e36817250e4",
+      "code": "fn close_to_tray(window: tauri::WebviewWindow) -> Result<(), String> {\n    window.destroy().map_err(|e| e.to_string())\n}\n#[tauri::command]\nasync fn quit_app(app: tauri::AppHandle, state: tauri::State<'_, AppState>) -> Result<(), String> {\n    state.quitting.store(true, Ordering::SeqCst);\n    state.engine.disconnect().await;\n    app.exit(0);"
+    },
+    {
+      "repository": "desktop",
+      "path": "src-tauri/src/storage.rs",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 11,
+      "endLine": 20,
+      "sourceSha256": "20a6bacdc0b4ff1d4955a4855526386e7f474063968a8fc320f7fbaeb572f5ea",
+      "excerptSha256": "10fdb3dd5fbb5616887ecb2489f2d713325e9efb5d80f0660f0f78bc2f0b73c4",
+      "code": "#[serde(rename_all = \"camelCase\")]\nstruct Stored {\n    schema_version: u32,\n    config: ClientConfig,\n    credential_id: String,\n}\n#[derive(Serialize, Deserialize)]\nstruct Credential {\n    license: String,\n    store_password: String,"
+    },
+    {
+      "repository": "desktop",
+      "path": "src-tauri/src/storage.rs",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 72,
+      "endLine": 83,
+      "sourceSha256": "20a6bacdc0b4ff1d4955a4855526386e7f474063968a8fc320f7fbaeb572f5ea",
+      "excerptSha256": "005b895da8b6c96741afde1b1ef679182491159fd9292b0b56e7d37a9a20a4cf",
+      "code": "    pub fn save(&mut self, config: ClientConfig, secrets: Secrets) -> Result<(), String> {\n        let id = uuid::Uuid::new_v4().to_string();\n        let entry =\n            keyring::Entry::new(SERVICE, &id).map_err(|_| \"系统安全存储不可用\".to_owned())?;\n        let credential = serde_json::to_string(&Credential {\n            license: secrets.license.clone(),\n            store_password: secrets.store_password.clone(),\n        })\n        .map_err(|_| \"无法保存凭证\".to_owned())?;\n        entry\n            .set_password(&credential)\n            .map_err(|_| \"无法写入系统安全存储，配置尚未保存\".to_owned())?;"
+    },
+    {
+      "repository": "desktop",
+      "path": "src-tauri/src/storage.rs",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 104,
+      "endLine": 115,
+      "sourceSha256": "20a6bacdc0b4ff1d4955a4855526386e7f474063968a8fc320f7fbaeb572f5ea",
+      "excerptSha256": "fe6702898367a91802e9ac7dbf2e8118429df4519950a1faaedabadd3453dd15",
+      "code": "        if let Err(error) = saved {\n            let _ = entry.delete_credential();\n            return Err(error);\n        }\n        if !self.credential_id.is_empty() {\n            if let Ok(old) = keyring::Entry::new(SERVICE, &self.credential_id) {\n                let _ = old.delete_credential();\n            }\n        }\n        self.config = config;\n        self.secrets = secrets;\n        self.credential_id = id;"
+    },
+    {
+      "repository": "desktop",
+      "path": "src-tauri/src/config_import.rs",
+      "commit": "eb0c697d27f5ca6834cf4e1f5f3c536d77faf10c",
+      "startLine": 68,
+      "endLine": 76,
+      "sourceSha256": "0251218f80a75722a4e3fd9f308e043f287c4782eeda8a98d22383f36ff64deb",
+      "excerptSha256": "d8b657e1d52eef7693e16b9bb8a966c566614539e7fd7011bd90d2bd91e28fff",
+      "code": "        // Selection of the YAML authorizes only its sibling identity, never cwd/home discovery.\n        let identity = path\n            .parent()\n            .unwrap_or_else(|| Path::new(\".\"))\n            .join(\".NEUTRINO_PROXY_CLIENT_ID\");\n        if let Ok(metadata) = std::fs::symlink_metadata(&identity) {\n            if metadata.is_file() && !metadata.file_type().is_symlink() && metadata.len() <= 4096 {\n                if let Some(id) = std::fs::read_to_string(identity).ok().and_then(non_blank) {\n                    config.client_id = id;"
+    }
+  ]
+}

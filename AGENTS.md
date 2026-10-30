@@ -26,6 +26,10 @@
 ## 文档站 UI 与维护
 
 - 适用范围：`neutrino-proxy-vuepress/`，目录名保留用于兼容既有路径，实际使用 VitePress。
+- 2026-10-30 用户明确要求文章结构和格式尽可能遵循当前 VitePress 版本的官方约定，优先方便直接手动维护 Markdown。正文显式书写 `#` 标题，优先标准 Markdown、官方 frontmatter 和内置提示容器；不增加写文章必需的生成脚本、自定义组件或解析语法。
+- 站点配置优先使用官方 `themeConfig.nav`、`themeConfig.sidebar` 等接口。课程章节组织、状态与源码溯源字段属于项目写作约定，不得冒充框架要求或扩展为普通文章的强制模板。
+- 已有 `permalink` 通过官方 `rewrites` 保留地址；普通新文章可省略该字段，直接使用官方文件路由。标题、历史提示、索引和资源写在 Markdown 中，不恢复构建时的正文自动改写或全局 `$withBase`。旧标题锚点保留最小 `slugify` 兼容配置。
+- 导航和分组直接维护 `neutrino-proxy-vuepress/docs/.vitepress/navigation.mjs` 中的官方配置；新增文章同时维护对应导航及 `/blog/` 索引。实际步骤和兼容边界见 `docs/05-operations/documentation-site.md`。
 - Skill: `awesome-design-md`
 - Source: `VoltAgent/awesome-design-md`
 - Style ID: `mintlify`（用户于 2026-10-29 选择）

@@ -18,29 +18,12 @@ export function readPages(root = docsRoot) {
   return walk(root).sort((a, b) => a.localeCompare(b, 'zh-CN', { numeric: true })).map(path => {
     const source = relative(root, path).replaceAll('\\', '/')
     const { data, content } = matter(readFileSync(path, 'utf8'))
-    if (source !== 'index.md' && !data.permalink) throw new Error(`Missing permalink: ${source}`)
+    const nativeRoute = source === 'index.md' ? '/'
+      : source.endsWith('/index.md') ? `/${source.slice(0, -8)}` : `/${source.slice(0, -3)}.html`
     return {
       source, data, content,
-      title: data.title || data.heroText || basename(source, '.md'),
-      route: normalizePermalink(source === 'index.md' ? '/' : data.permalink),
+      title: data.title || data.hero?.name || content.match(/^#\s+(.+)$/m)?.[1] || basename(source, '.md'),
+      route: data.permalink ? normalizePermalink(data.permalink) : nativeRoute,
     }
   })
-}
-
-export function buildSidebar(pages, { stripRoot = false } = {}) {
-  const items = []
-  for (const page of pages.filter(page => page.route !== '/' && !page.data.archivesPage)) {
-    let level = items
-    for (const folder of page.source.split('/').slice(stripRoot ? 1 : 0, -1)) {
-      const text = folder.replace(/^\d+\./, '')
-      let group = level.find(item => item.text === text && item.items)
-      if (!group) {
-        group = { text, collapsed: false, items: [] }
-        level.push(group)
-      }
-      level = group.items
-    }
-    level.push({ text: page.title, link: page.route })
-  }
-  return items
 }

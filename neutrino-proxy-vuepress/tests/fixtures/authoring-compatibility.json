@@ -1,0 +1,556 @@
+[
+  {
+    "source": "@pages/archivesPage.md",
+    "route": "/blog/",
+    "title": "博客文章",
+    "originalTextSha256": "60316d71a0748742accf84b7b948fe3bbbeddc38171aa5c0bf58c555486f6609",
+    "renderedTextSha256": "cb7fd1b880c039f4806e189147cb994b9d2a8aafc583b4298105a37e69a0be28",
+    "ids": [
+      "博客文章"
+    ]
+  },
+  {
+    "source": "01.使用教程/01.安装部署/01.快速上手.md",
+    "route": "/pages/793dcb/",
+    "title": "快速上手",
+    "originalTextSha256": "49ef42cc8b37b9330b034234395df2c9851976eb0527e401ef31d65e776f8305",
+    "renderedTextSha256": "b36107c61d4d90e7a5c1013af4b76aeb103567e030b0d755b32e743076d8da8c",
+    "ids": [
+      "快速上手",
+      "_1、快速上手须知",
+      "_2、部署服务",
+      "_3、代理验证"
+    ]
+  },
+  {
+    "source": "01.使用教程/01.安装部署/02.通过宝塔面板部署.md",
+    "route": "/pages/9e0fde/",
+    "title": "通过宝塔面板部署",
+    "originalTextSha256": "02f65d61a805d99e324396aadf92886cc3a5e1ecf92aedc14c61333b74fe0cb1",
+    "renderedTextSha256": "353bc3e72d34d458dfc6dc0c4280f1680f9668692991c5a180380aefb9cef1a1",
+    "ids": [
+      "通过宝塔面板部署",
+      "前提",
+      "部署",
+      "_1、登录宝塔面板-在左侧菜单栏中点击docker",
+      "_2、首次会提示安装docker和docker-compose服务-点击立即安装-若已安装请忽略。",
+      "_3、安装完成后在docker-应用商店中找到-中微子代理-搜索-neutrinoproxy-点击安装",
+      "_4、设置基本信息-点击确定",
+      "_5、提交后面板会自动进行应用初始化-大概需要1-3分钟-初始化完成后即可访问。",
+      "_6、访问中微子代理管理后台"
+    ]
+  },
+  {
+    "source": "01.使用教程/01.安装部署/03.使用jar部署.md",
+    "route": "/pages/eebea1/",
+    "title": "使用jar部署",
+    "originalTextSha256": "af2945e32fb391113faba574f9f011cc553aed81dc0b3737ce7a336f9f0ee5dd",
+    "renderedTextSha256": "04fd1ec208cab17c5c55cf358636f3be0fbe2eb3eab6ea8177173f138070f702",
+    "ids": [
+      "使用jar部署",
+      "_1、环境准备",
+      "_2、部署服务端",
+      "_3、部署客户端"
+    ]
+  },
+  {
+    "source": "01.使用教程/01.安装部署/04.使用docker容器化部署.md",
+    "route": "/pages/5b9bef/",
+    "title": "使用docker容器化部署",
+    "originalTextSha256": "6192079778122ede1d39664f674b279a759b0386158e4160f868f8cb64ca9220",
+    "renderedTextSha256": "c6dfda84a5c6d6f03cf14634f5b8be3386b2e5c7ad78640566852da2f0a56a09",
+    "ids": [
+      "使用docker容器化部署",
+      "_1、-部署服务端",
+      "使用默认h2数据库一键部署",
+      "指定自己的mysql数据库",
+      "_2、部署客户端"
+    ]
+  },
+  {
+    "source": "01.使用教程/01.安装部署/05.原生部署.md",
+    "route": "/pages/69699a/",
+    "title": "原生部署",
+    "originalTextSha256": "21a295aa333adf60a5a810542db0a9054e72a131bba2688328bfc2327b2b61ed",
+    "renderedTextSha256": "6c16c0f79636cf61419d2ab462ce22f7c8a71a18ad816849d1439d673dca55ac",
+    "ids": [
+      "原生部署",
+      "_1、安装包下载",
+      "_2、部署服务端",
+      "_3、部署客户端"
+    ]
+  },
+  {
+    "source": "01.使用教程/01.安装部署/06.使用docker-compose部署.md",
+    "route": "/pages/2d4123/",
+    "title": "使用docker-compose部署",
+    "originalTextSha256": "0399838bf4210fb2c5e5d5e9b156993a18f7fce9b029563b1b34b5a045d9bc04",
+    "renderedTextSha256": "a0851bd5b6301919738de3e8d38ac0d2edc8891dcb6e1d88f8978521cb3c2185",
+    "ids": [
+      "使用docker-compose部署",
+      "_1、-部署服务端",
+      "使用默认h2数据库一键部署",
+      "使用默认mysql数据库一键部署",
+      "_2、部署客户端"
+    ]
+  },
+  {
+    "source": "01.使用教程/02.使用须知/01.管理后台.md",
+    "route": "/pages/793dcc/",
+    "title": "后台操作指南",
+    "originalTextSha256": "40781b9ea9b975350dd185f5c070233f6436e9988b5016543a561f97814999d1",
+    "renderedTextSha256": "eed9f05188fd01d23e7a18110f81f880d54e700d2e56ce6a307bfdb3dcd53a6a",
+    "ids": [
+      "首页",
+      "代理配置",
+      "安全组",
+      "系统管理",
+      "报表管理",
+      "日志管理"
+    ]
+  },
+  {
+    "source": "01.使用教程/02.使用须知/02.关于端口.md",
+    "route": "/pages/68badb/",
+    "title": "关于端口",
+    "originalTextSha256": "cbbc244376a022ec7d6fbe77b9cad0325fcabbf7375c9d999b03a888c53c5000",
+    "renderedTextSha256": "59b17fbc4901e6712c138a0eb9b2cbe97c5c565a8910a7011db71109e54abdd6",
+    "ids": [
+      "端口池",
+      "端口池分组",
+      "端口映射",
+      "基础端口说明"
+    ]
+  },
+  {
+    "source": "01.使用教程/02.使用须知/03.域名映射.md",
+    "route": "/pages/269a2e/",
+    "title": "域名映射",
+    "originalTextSha256": "87d448f8a07a75c2de8e2de0427da829870adc9de029392d950a5e5141066505",
+    "renderedTextSha256": "eae27cce5825f571fcba0b7d38fc5019177cc0782a90cec2f0049045dcfeb453",
+    "ids": [
+      "什么是域名映射",
+      "域名映射能解决什么问题",
+      "域名映射的大致流程",
+      "情况1-代理服务端使用80端口",
+      "情况2-代理服务端不使用80端口-80端口被nginx占用",
+      "所有的代理映射都能绑定域名吗",
+      "域名映射支持https吗",
+      "上传服务器证书的文件有要求吗",
+      "代理服务端使用非80端口时-nginx配置示例"
+    ],
+    "addedCodeBlockLanguages": [
+      {
+        "index": 0,
+        "language": "nginx"
+      }
+    ]
+  },
+  {
+    "source": "01.使用教程/02.使用须知/04.HTTPS配置.md",
+    "route": "/pages/99a300/",
+    "title": "HTTPS配置",
+    "originalTextSha256": "5324c838e4a4d7ec55f02a6098bf3575e761b01e03adbfca5d709b1b1c9e33ad",
+    "renderedTextSha256": "af1358f9b9423a99917d34c9d7101bf3a7d4f5e165517b444e23cc66828cf08c",
+    "ids": [
+      "https配置",
+      "基础说明",
+      "https配置流程",
+      "https端口问题"
+    ]
+  },
+  {
+    "source": "01.使用教程/02.使用须知/05.服务端配置.md",
+    "route": "/pages/f2d0f1/",
+    "title": "服务端配置",
+    "originalTextSha256": "aaa8a706def180f46f135fa7cb685975f78cee7de84d643beb7a72bce419db87",
+    "renderedTextSha256": "8fe954586f6d71ee2e649aa1f2b06cee7f9cbb4173c3ac42f61d1228b5fcd12b",
+    "ids": [
+      "以下是最新的服务端配置格式-app-yml"
+    ]
+  },
+  {
+    "source": "01.使用教程/02.使用须知/06.客户端配置.md",
+    "route": "/pages/50ce10/",
+    "title": "客户端配置",
+    "originalTextSha256": "afcee536197fab22b8e2a4afaede942e2c2a6311fac7beb22691ff2f9d0f10d6",
+    "renderedTextSha256": "de520421e10c9abfa43f078a7304a0f371b130d82860532464a7312cc8236e0e",
+    "ids": [
+      "以下是最新的客户端配置格式-app-yml"
+    ]
+  },
+  {
+    "source": "01.使用教程/99.常见问题/01.客户端连接服务端失败.md",
+    "route": "/pages/31d253/",
+    "title": "客户端连接服务端失败",
+    "originalTextSha256": "6335fa0dee2ab5d36ca1dfbc7db67fa75976d606f957d724ffb07ed82eaebf71",
+    "renderedTextSha256": "7a898ffdb3fd63befcbf39ae1ced882b7efa80a5cbfdab4dfef83dda39e5d676",
+    "ids": [
+      "客户端连接服务端失败",
+      "_1-1-启动日志包含not-found-license-key-config相关字样",
+      "_1-2-配置文件确定都已经配置-且启动参数正确指定了-但是没有出现认证成功日志"
+    ]
+  },
+  {
+    "source": "01.使用教程/99.常见问题/02.易混淆的2类证书.md",
+    "route": "/pages/e4c3d7/",
+    "title": "易混淆的2类证书",
+    "originalTextSha256": "92acf7248f7ae629aebb819530fa360267fb859618d859f69eec2f2050122608",
+    "renderedTextSha256": "83f14b8717c9ed21ef9841301535444e4027534342b814d13b15b729269c71cb",
+    "ids": [
+      "易混淆的2类证书",
+      "_2-1-https证书",
+      "_2-2-隧道ssl证书"
+    ],
+    "addedCodeBlockLanguages": [
+      {
+        "index": 0,
+        "language": "shell"
+      }
+    ]
+  },
+  {
+    "source": "01.使用教程/99.常见问题/03.udp代理无效.md",
+    "route": "/pages/7b990f/",
+    "title": "udp代理无效",
+    "originalTextSha256": "83dbeb63359fe2225a61a70fe598d3d12b3277dd02b38707faa973dfec946bb4",
+    "renderedTextSha256": "eeb8c9a810dfc22f7020ab29864158d68cb2a83e089c31dddba85dee315dfc00",
+    "ids": [
+      "udp代理无效",
+      "问题描述",
+      "解决方案"
+    ]
+  },
+  {
+    "source": "01.使用教程/99.常见问题/04.Vue项目出现Invalid Host header 的解决方案.md",
+    "route": "/pages/441163/",
+    "title": "Vue项目出现Invalid Host header 的解决方案",
+    "originalTextSha256": "df18139b60a229c1a0b758bdb5a0d0d633725171f47c2b8242d88e67cecfa129",
+    "renderedTextSha256": "4b82f2b80440f5ecd8045f2995f11a32409f1a5e8fd6b5188027408651badb3f",
+    "ids": [
+      "vue项目出现invalid-host-header-的解决方案",
+      "问题描述",
+      "解决方案"
+    ],
+    "addedCodeBlockLanguages": [
+      {
+        "index": 0,
+        "language": "json"
+      }
+    ]
+  },
+  {
+    "source": "01.使用教程/99.常见问题/05.服务端原声包启动，db初始化异常.md",
+    "route": "/pages/7dcba8/",
+    "title": "服务端原声包启动，db初始化异常",
+    "originalTextSha256": "1becb05917ee546b50f218e2065422a2809c0b12b4d490e760bc4606b4340b3e",
+    "renderedTextSha256": "8054f0953f7e8bb42e2568d929c2d51d70d9a74ffa3fedb260ff036f2a640207",
+    "ids": [
+      "服务端原声包启动-db初始化异常",
+      "_1-1、报错-data-truncation-data-too-long-for-column-name-at-row-1"
+    ]
+  },
+  {
+    "source": "02.常见问题/01.配置/01.主题配置.md",
+    "route": "/pages/a20ce8/",
+    "title": "主题配置",
+    "originalTextSha256": "84c4b77bf39883078e8dc5bc9f173b9e2ae2ce553015cc68fe61dd62548451ea",
+    "renderedTextSha256": "452d13f5007e4407b4324220a6a643cc2b0767f4bc236628f65b6c76ad691ec2",
+    "ids": [
+      "主题配置",
+      "是否打开分类、标签、归档",
+      "category",
+      "tag",
+      "archive",
+      "使用分类页、标签页、归档页链接",
+      "碎片化文章默认分类值",
+      "categorytext",
+      "页面风格",
+      "pagestyle",
+      "defaultmode",
+      "body背景大图",
+      "bodybgimg",
+      "bodybgimgopacity",
+      "bodybgimginterval",
+      "文章标题前的图标",
+      "titlebadge",
+      "titlebadgeicons",
+      "文章内容块的背景底纹",
+      "contentbgstyle",
+      "侧边栏",
+      "sidebar",
+      "sidebaropen",
+      "对指定页面禁用侧边栏",
+      "碎片化文章的侧边栏",
+      "最近更新栏",
+      "updatebar",
+      "非文章页的设置",
+      "右侧文章大纲栏",
+      "rightmenubar",
+      "快捷翻页按钮",
+      "pagebutton",
+      "文章作者信息",
+      "author",
+      "指定的文章作者信息",
+      "博主信息",
+      "blogger",
+      "社交图标",
+      "social",
+      "主题内置的社交图标",
+      "扩展自动生成front-matter",
+      "extendfrontmatter",
+      "页脚版权栏",
+      "footer",
+      "自定义html模块",
+      "htmlmodules"
+    ]
+  },
+  {
+    "source": "02.常见问题/01.配置/02.首页配置.md",
+    "route": "/pages/f14bdb/",
+    "title": "首页配置",
+    "originalTextSha256": "5ba5d2765f868d77e14bfb6059e68cf60b9d1c02fa34fda21148b1f884f09d36",
+    "renderedTextSha256": "843f6f9befabe1c582b206d6f01409c3ab75931ff012de32b014e2a38c891ad8",
+    "ids": [
+      "bannerbg",
+      "features",
+      "postlist",
+      "simplepostlistlength",
+      "hiderightbar"
+    ]
+  },
+  {
+    "source": "02.常见问题/01.配置/03.front matter配置.md",
+    "route": "/pages/3216b0/",
+    "title": "front matter配置",
+    "originalTextSha256": "0a922f058c539171670f171ead9ce338e6930c23c878a2bdc8a6861ffdd4e05a",
+    "renderedTextSha256": "c7643916cc5bd2415d92d6589f56a2f0932b63268a79cbc7249fee7032cd62c9",
+    "ids": [
+      "front-matter配置",
+      "配置项",
+      "titletag",
+      "sidebar",
+      "article",
+      "comment",
+      "editlink",
+      "author",
+      "sticky-置顶"
+    ]
+  },
+  {
+    "source": "02.常见问题/01.配置/04.目录页配置.md",
+    "route": "/pages/54651a/",
+    "title": "目录页配置",
+    "originalTextSha256": "d7a97434ff6b73aa515206d8075204cf3c09b4a290ecd828039b45201df65821",
+    "renderedTextSha256": "da0236ce438b11c931a992c6f11f3aa225d5fcb5e17df2306567b31c3b0d791b",
+    "ids": [
+      "目录页配置",
+      "目录页说明",
+      "配置项",
+      "pagecomponent-name",
+      "pagecomponent-data",
+      "pagecomponent-data-path",
+      "pagecomponent-data-imgurl",
+      "pagecomponent-data-description",
+      "如何在导航栏中添加目录页链接"
+    ]
+  },
+  {
+    "source": "02.常见问题/01.配置/05.添加摘要.md",
+    "route": "/pages/1cc523/",
+    "title": "添加摘要",
+    "originalTextSha256": "3d49c37cd7da23c83c212ad59f57f3f6aaa46d4f9fdca64e7fbb150fcf9a1c86",
+    "renderedTextSha256": "df8d074ddef6b409c60d254913ede24ccd578a2d16d60b9c5b4beb80a18a8a9a",
+    "ids": []
+  },
+  {
+    "source": "02.常见问题/01.配置/06.修改主题颜色和样式.md",
+    "route": "/pages/f51918/",
+    "title": "修改主题颜色和样式",
+    "originalTextSha256": "efff70362ac43627caef340dffc0d7758bf382117ae55f38f0a32c61791dd537",
+    "renderedTextSha256": "12177dcbde403784db3fb72fc56996bca081cd0b82dd3ad0d9fc7a7caa09a98e",
+    "ids": [
+      "修改主题颜色和样式",
+      "主题样式变量",
+      "样式修改与适配"
+    ]
+  },
+  {
+    "source": "02.常见问题/01.配置/07.评论栏.md",
+    "route": "/pages/ce175c/",
+    "title": "评论栏",
+    "originalTextSha256": "d23e2768089e1b87508e2487493cd1bafbca96c5bbc395513b5c47ca008a53ec",
+    "renderedTextSha256": "04fca2af36b217e900fcd2017a9fae49a3252b87d23089829183f6b5212eff8e",
+    "ids": [
+      "评论栏",
+      "vuepress-plugin-comment",
+      "vuepress-plugin-vssue",
+      "vuepress-plugin-vssue-global",
+      "twikoo"
+    ]
+  },
+  {
+    "source": "03.支持我们/01.个人赞赏.md",
+    "route": "/pages/1ab20b/",
+    "title": "个人赞赏",
+    "originalTextSha256": "47b8304d3c62726dc2d8251a6154919ba70efa4f6b69daffba8298fea991a2b8",
+    "renderedTextSha256": "a635641e2404b13f980cb3dfd39f9ae4c596b8429cfec40163f591c5e8af9ea8",
+    "ids": [
+      "个人赞赏",
+      "个人赞赏说明",
+      "赞赏途径"
+    ]
+  },
+  {
+    "source": "03.支持我们/02.贡献指南/01.如何贡献.md",
+    "route": "/pages/a3f096/",
+    "title": "如何贡献",
+    "originalTextSha256": "225394b3ecbe2386e4f276a12ea3c76ac843f51fd0f5d2337b77227311bd58e8",
+    "renderedTextSha256": "a93913aff434104276eac28548742cedcaaaed5026383aff10a4061d0fb44196",
+    "ids": [
+      "🎋代码分支说明",
+      "✊贡献的方式",
+      "🧬贡献代码的步骤",
+      "📐pr的规范"
+    ]
+  },
+  {
+    "source": "03.支持我们/02.贡献指南/02.项目结构.md",
+    "route": "/pages/2f674a/",
+    "title": "项目结构",
+    "originalTextSha256": "765a964b2131d772505364f6aa2872f8402b50c7bbee38a97b15908d287b512c",
+    "renderedTextSha256": "0a139f054024b1c7f8e17b72f8d3cca72832f22dc33ffe89c6cb29b3a8cf0381",
+    "ids": [
+      "主要目录、文件",
+      "代码分支说明"
+    ],
+    "addedCodeBlockLanguages": [
+      {
+        "index": 0,
+        "language": "text"
+      }
+    ]
+  },
+  {
+    "source": "03.支持我们/02.贡献指南/03.实现原理.md",
+    "route": "/pages/dd027d/",
+    "title": "实现原理",
+    "originalTextSha256": "d0cdcb8943a5b3a4eb4a1156764ab31142572d26642b4c045d3d7c354fa3bd72",
+    "renderedTextSha256": "bfa11ac9ef47f9a642f0302945c125d8cd7a6bf2600629d3b7ca880f75bcf6b7",
+    "ids": [
+      "代理实现中涉及的几类channel",
+      "指令通道-cmdchannel",
+      "用户访问通道-visitorchannel",
+      "被代理服务的实际通道-realserverchannel",
+      "代理数据传输的通道-proxychannel",
+      "代理实现流程",
+      "_1、服务连接阶段",
+      "_2、用户连接阶段",
+      "_3、实际被代理服务连接阶段",
+      "_4、代理通道连接阶段",
+      "_5、数据传输阶段"
+    ]
+  },
+  {
+    "source": "03.支持我们/99.赞赏公示/100.2023年.md",
+    "route": "/pages/cded59/",
+    "title": "2023年",
+    "originalTextSha256": "c72ccf7232fd0131d388968a70c24e72a8cce481dca4ed4af9078934148963f8",
+    "renderedTextSha256": "f482624859438a197eeaddc005e75e1c80f280107282eee544eb311fc111319c",
+    "ids": [
+      "_2023年"
+    ]
+  },
+  {
+    "source": "03.支持我们/99.赞赏公示/99.2024年.md",
+    "route": "/pages/acdf0a/",
+    "title": "2024年",
+    "originalTextSha256": "af1ecd4d1eeb24e9ebf2ff9ab3998110aa76ae03eb8ffe6d9a6a2f8ecc03a01d",
+    "renderedTextSha256": "dc63562ddd31dba1d58ea108eea64217e421775e59bcb10f1f14f929d28cd5ad",
+    "ids": [
+      "_2024年"
+    ]
+  },
+  {
+    "source": "04.案例/01.用户使用案例/01.企业登记.md",
+    "route": "/pages/5d571c/",
+    "title": "企业登记案例",
+    "originalTextSha256": "fe7fa520e909da1cf465a1d4e1968277ce592c364d69c6bad43ae49c5f9492d4",
+    "renderedTextSha256": "2eb5126fcf76bc6167f133647258775fad2b324b0cd6dd514457f5f4094b690c",
+    "ids": [
+      "企业登记案例",
+      "企业登记",
+      "案例展示"
+    ]
+  },
+  {
+    "source": "05.更新记录/01.版本记录/98.2.x.md",
+    "route": "/pages/ff3519/",
+    "title": "2.x",
+    "originalTextSha256": "3a20bccdc981ed947b4e299139253502e623a3b23695eb44471622cba54ab7d4",
+    "renderedTextSha256": "e1702eb8a5bde3e662bd03436752773679540462762a0223a81d551d2ccf19bc",
+    "ids": [
+      "_2-x",
+      "_2-0-3",
+      "_2-0-2",
+      "_2-0-1",
+      "_2-0-0"
+    ]
+  },
+  {
+    "source": "05.更新记录/01.版本记录/99.1.x.md",
+    "route": "/pages/dda8e5/",
+    "title": "1.x",
+    "originalTextSha256": "c278ee1914a24635a2e308b75a9693c16cf0b9480079ef1747733e1765717c71",
+    "renderedTextSha256": "c58fa3ffa28a2295bea18a3260a9ade47de7f8f0003fd2a5c7c7b2bae068a3bd",
+    "ids": [
+      "_1-x",
+      "_1-9-0",
+      "_1-8-6",
+      "_1-8-5",
+      "_1-8-4",
+      "_1-8-3",
+      "_1-8-2",
+      "_1-8-0",
+      "_1-7-1",
+      "_1-7-0",
+      "_1-6-4",
+      "_1-6-0",
+      "_1-5-0",
+      "_1-0-0"
+    ]
+  },
+  {
+    "source": "05.更新记录/02.里程碑.md",
+    "route": "/pages/e406dd/",
+    "title": "里程碑",
+    "originalTextSha256": "a06c22de00e4fcd1c39f2f0256eea87afbf34ed372c1b3cbbf67e7453f8e75b3",
+    "renderedTextSha256": "d7693f9cfb1c81d6dfe33815c62d4f5ea0371d0afeeccab18b385c0ab99716e3",
+    "ids": [
+      "里程碑"
+    ]
+  },
+  {
+    "source": "06.关于我们/01.赞助.md",
+    "route": "/pages/1b12ed/",
+    "title": "支持这个项目",
+    "originalTextSha256": "2d00ef410c38c233afa207cf5c5f3510f1065f13a76a621f04b13a4eede0bab3",
+    "renderedTextSha256": "a705dc3bbb2504affa7bd5e0a47253d103225cd3d1647bec3088714d27068632",
+    "ids": [
+      "支持这个项目",
+      "致谢"
+    ]
+  },
+  {
+    "source": "index.md",
+    "route": "/",
+    "title": "Neutrino-Proxy",
+    "originalTextSha256": "ff78164b1337339fb38d07d0af25c297dd112f2f91a85a6a0327299c1a7ec2ed",
+    "renderedTextSha256": "d113d960bdb60ed20ee6dd4bfe816b1f80851d789b85cde8430b65d04cbd39bf",
+    "ids": [
+      "⚡-反馈与交流",
+      "🌈特别赞助",
+      "🤝-dromara-组织项目"
+    ]
+  }
+]

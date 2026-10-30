@@ -2,35 +2,39 @@
   "name": "neutrino-proxy-docs",
   "version": "1.0.0",
   "private": true,
-  "engines": { "node": ">=22.12.0" },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "scripts": {
     "dev": "vitepress dev docs --host 127.0.0.1",
     "build": "vitepress build docs",
     "preview": "vitepress preview docs --host 127.0.0.1",
     "test": "node --test tests/*.test.mjs",
+    "check:format": "markdownlint-cli2",
     "check:links": "node scripts/check-build.mjs",
     "test:e2e": "playwright test",
     "test:nginx": "node scripts/check-nginx.mjs",
-    "check": "npm test && npm run build && npm run check:links",
+    "check": "npm run check:format && npm test && npm run build && npm run check:links",
     "editFm": "node utils/editFrontmatter.js"
   },
   "license": "MIT",
   "devDependencies": {
     "@playwright/test": "1.64.1",
-    "gray-matter": "4.0.3",
-    "linkedom": "0.18.12",
-    "markdown-it": "14.3.3",
-    "markdown-it-container": "4.0.0",
-    "medium-zoom": "1.1.0",
     "chalk": "^4.1.2",
+    "gray-matter": "4.0.3",
     "inquirer": "^7.1.0",
     "json2yaml": "^1.1.0",
+    "linkedom": "0.18.12",
+    "markdown-it": "14.3.3",
+    "markdownlint-cli2": "0.23.3",
+    "medium-zoom": "1.1.0",
     "vitepress": "1.6.4",
     "vue": "^3.5.13",
     "yamljs": "^0.3.0"
   },
-  "dependencies": {},
   "overrides": {
-    "external-editor": { "tmp": "^0.2.6" }
+    "external-editor": {
+      "tmp": "^0.2.6"
+    }
   }
 }

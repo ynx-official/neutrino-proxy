@@ -1,15 +1,11 @@
 import DefaultTheme from 'vitepress/theme'
 import { watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { useRoute, withBase } from 'vitepress'
+import { useRoute } from 'vitepress'
 import mediumZoom from 'medium-zoom'
 import './style.css'
 
 export default {
   extends: DefaultTheme,
-  enhanceApp({ app }) {
-    // VuePress-authored pages call this helper in both SSR and the browser.
-    app.config.globalProperties.$withBase = path => withBase(path.startsWith('/') ? path : `/${path}`)
-  },
   setup() {
     const route = useRoute()
     let zoom

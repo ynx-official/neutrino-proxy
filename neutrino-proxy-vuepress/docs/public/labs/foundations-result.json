@@ -1,0 +1,114 @@
+{
+  "executedAt": "2026-10-30T04:24:43.979188+00:00",
+  "scope": "direct project-class and JDK checks; no server, database or remote connection",
+  "checks": [
+    {
+      "name": "dispatcher_known_type",
+      "passed": true
+    },
+    {
+      "name": "dispatcher_duplicate_keeps_first",
+      "passed": true
+    },
+    {
+      "name": "dispatcher_unknown_type_ignored",
+      "passed": true
+    },
+    {
+      "name": "compound_get_put_loses_update",
+      "passed": true
+    },
+    {
+      "name": "compute_preserves_updates",
+      "passed": true
+    },
+    {
+      "name": "utf8_character_is_three_bytes",
+      "passed": true
+    },
+    {
+      "name": "encoded_frame_is_27_bytes",
+      "passed": true
+    },
+    {
+      "name": "partial_frame_waits",
+      "passed": true
+    },
+    {
+      "name": "project_codec_roundtrip",
+      "passed": true
+    },
+    {
+      "name": "retained_slice_shares_count",
+      "passed": true
+    },
+    {
+      "name": "release_returns_count_to_one",
+      "passed": true
+    },
+    {
+      "name": "last_release_reaches_zero",
+      "passed": true
+    },
+    {
+      "name": "threadlocal_not_automatically_inherited",
+      "passed": true
+    },
+    {
+      "name": "pooled_thread_keeps_uncleared_context",
+      "passed": true
+    },
+    {
+      "name": "remove_clears_reused_thread",
+      "passed": true
+    },
+    {
+      "name": "main_context_is_separate",
+      "passed": true
+    },
+    {
+      "name": "empty_frame_is_17_bytes",
+      "passed": true
+    },
+    {
+      "name": "outer_length_excludes_its_own_four_bytes",
+      "passed": true
+    },
+    {
+      "name": "concatenated_frames_decode_in_order",
+      "passed": true
+    },
+    {
+      "name": "null_info_decodes_as_empty_string",
+      "passed": true
+    },
+    {
+      "name": "all_binary_byte_values_roundtrip",
+      "passed": true
+    },
+    {
+      "name": "one_byte_fragments_wait_for_complete_frame",
+      "passed": true
+    },
+    {
+      "name": "malformed_info_-1_throws",
+      "passed": true
+    },
+    {
+      "name": "malformed_info_1024_throws",
+      "passed": true
+    },
+    {
+      "name": "oversized_frame_rejected_at_length_header",
+      "passed": true
+    }
+  ],
+  "observations": [
+    "infoLength=-1: cause=NegativeArraySizeException, refCnt after channel cleanup=2, diagnostic reference expected=1; lab manually releases remainder",
+    "infoLength=1024: cause=IndexOutOfBoundsException, refCnt after channel cleanup=2, diagnostic reference expected=1; lab manually releases remainder"
+  ],
+  "temporaryStateRemoved": true,
+  "sourceCommit": "687c4bcb9360b63fe140b8360ce7a20dbacec7ff",
+  "serverJarSha256": "dea90dfeff122b9fddcf9288fcc1e6a9f770cbc4d0ddac0132527735f1d91cad",
+  "java": "openjdk version \"21.0.10\" 2026-01-20 LTS"
+}

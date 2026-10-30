@@ -7,7 +7,7 @@ for (const document of readPages()) {
     page.on('pageerror', error => errors.push(error.message))
     const response = await page.goto(`.${document.route}`)
     expect(response.status()).toBe(200)
-    if (document.route !== '/') {
+    if (document.route !== '/' && document.route.endsWith('/')) {
       const slashless = await request.get(`.${document.route.slice(0, -1)}`)
       expect(slashless.status()).toBe(200)
       expect(await slashless.text()).toContain(document.title)

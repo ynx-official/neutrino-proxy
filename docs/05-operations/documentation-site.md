@@ -24,25 +24,44 @@ npm run test:e2e
 npm run preview
 ```
 
-`check` 执行单元测试、生产构建、产物链接与锚点检查。Playwright 自动启动并关闭独立预览服务器。Linux 首次安装浏览器时使用 `npx playwright install --with-deps chromium`。
+`check` 依次执行全站 Markdown 格式检查、单元测试、生产构建、产物链接与锚点检查。只检查文章格式时运行 `npm run check:format`；使用通用 `markdownlint-cli2`，配置位于文档站根目录 `.markdownlint-cli2.jsonc`，不改变 Markdown 的编写或渲染方式。Playwright 自动启动并关闭独立预览服务器。Linux 首次安装浏览器时使用 `npx playwright install --with-deps chromium`。
 
-开发服务启动后还需验证浏览器实际加载页面，不能只以 HTTP 200 判定正常。已有开发服务可用 `DOCS_TEST_URL=http://localhost:4173/` 运行相关 Playwright 用例。旧 Markdown 中紧邻 `</div>` 或 `</table>` 的 `<style>` 由构建适配层补充分隔空行，使其作为组件样式提取；保留原文，并通过 Vue 开发模式模板编译回归测试防止样式混入模板。
+开发服务启动后还需验证浏览器实际加载页面，不能只以 HTTP 200 判定正常。已有开发服务可用 `DOCS_TEST_URL=http://localhost:4173/` 运行相关 Playwright 用例。Markdown 内的 HTML 与 `<style>` 块在源文件中用空行分隔；开发模式编译测试防止样式混入模板，不再由构建层补写空行。
+
+## 官方格式优先
+
+2026-10-30 用户明确要求优先采用官方结构和格式，减少手动维护负担。以当前锁定版本的 [VitePress 1.6.4 路由](https://vuejs.github.io/vitepress/v1/zh/guide/routing)、[Markdown 扩展](https://vuejs.github.io/vitepress/v1/zh/guide/markdown)及[侧边栏配置](https://vuejs.github.io/vitepress/v1/zh/reference/default-theme-sidebar)为依据；不将新版文档中尚未支持的能力直接用于当前版本。
+
+- 文章直接维护 `.md` 文件，显式书写一级标题和合理的二、三级标题；代码、列表、表格、链接与图片优先使用 Markdown，提示使用官方内置容器。普通文章不依赖生成器、自定义组件或额外解析语法。
+- 官方不规定教程必须采用哪些章节名称。课程的学习问题、实验、状态和源码引用属于本项目的教学与追溯约定；不作为普通文章的必填模板。自定义 frontmatter 字段的用途须明确，不与官方配置混淆。
+- 导航和分组直接维护 `.vitepress/navigation.mjs` 导出的 `nav`、`sidebar`，使用官方的 `text`、`link`、`items`、`collapsed` 配置。现有编号目录继续用于归类，不再通过扫描目录推断导航。分组标题、顺序和展开状态都可直接编辑。
+- 普通新文章使用官方文件路由，无需 `permalink`。已有文章的 `permalink` 继续通过官方 `rewrites` 保留原地址；旧锚点保留 `markdown.anchor.slugify` 兼容配置。自动补标题、历史提示、文章索引、首页转换和 HTML URL 改写已移除，详见[整理记录](../06-delivery/native-documentation-authoring.md)。
+
+### 手动新增或修改文章
+
+1. 直接编辑已有 `.md`；新增普通页面例如 `docs/guide/first-step.md`，正文以 `# 第一步` 开头。需要描述或页面选项时再添加官方 frontmatter；`title` 可省略，由一级标题推导。
+2. 新文件默认对应 `/guide/first-step.html`；`docs/guide/index.md` 对应 `/guide/`。新增内部链接按官方建议省略文件扩展名。已有重写页面仍使用其 `/pages/<id>/` 或 `/learn/<slug>/` 地址。
+3. 在 `.vitepress/navigation.mjs` 对应分组添加链接。新的栏目同时增加 `nav` 和 `sidebar` 的路径前缀；已有 `/learn/` 前缀由课程分组共享。`/pages/<id>/` 是旧的不透明地址，仍需映射到所属分组。
+4. 需要出现在 `/blog/` 全站索引时，编辑 `docs/@pages/archivesPage.md` 中的普通 Markdown 链接列表。索引不再隐式生成。
+5. 图片优先写 `![说明](/img/example.png)` 或文件相对路径；`public/` 资源使用根路径，VitePress 自动处理 `base`。首页已有的复杂 HTML 布局在本页通过 `<script setup>` 导入官方 `withBase`，不用全局辅助函数。
+6. 运行 `npm run check` 与 `npm run test:e2e`；涉及路径或资源时验证根路径和子路径。新增栏目、文章或有意修改旧文时，同步维护对应内容清单与兼容检查，不通过删除断言绕过内容丢失。
 
 ## 内容维护
 
-- 原有 37 篇 Markdown 保留在 `docs/`；145 个静态资源由 `.vuepress/public/` 移到 `docs/public/`，字节保持不变。
-- 非首页文档必须声明唯一 `permalink`。构建器将其映射为目录首页，例如 `/pages/793dcb/` 对应 `pages/793dcb/index.html`，不依赖单页应用回退。
+- 原有 37 篇 Markdown 保留在原目录，已将标题、历史提示和资源路径整理为可直接维护的源内容；原有正文、地址与标题书签由兼容基线验证。145 个既有静态资源字节保持不变。
+- 已有 `permalink` 必须保持唯一，例如 `/pages/793dcb/` 通过官方 `rewrites` 对应 `pages/793dcb/index.html`，不依赖单页应用回退。该字段是保留旧 URL 的项目约定，不是新文章的必填项。
 - 保留 VuePress 标题 slug 规则，包括数字开头的 `_` 与中文标点。不要随意更改标题、permalink 或复制相同地址到另一篇文档。
 - 顶部导航按文档、案例、支持、更新记录切换栏目；“文档”下拉只列“安装部署、使用须知、常见问题”三个分类，分别进入该类首篇文章。左侧仅显示当前栏目的文章，右侧显示本页标题目录。侧栏各组默认全部展开，支持手动收起；文章相对分类标题缩进，并用细竖线标识层级。
-- `scripts/navigation.mjs` 根据原文目录归类，并将每个旧 permalink 关联到对应侧栏；`06.关于我们/` 归入支持栏目。新增文章沿用所在目录分类，新增顶级目录时须显式配置栏目，避免漏掉导航入口。
+- `.vitepress/navigation.mjs` 保留原栏目与顺序，`06.关于我们/` 仍归入支持栏目。新文章的分类和顺序由该配置明确维护，不再取决于目录名或文件名前缀。
 - `07.源码学习/` 使用独立的“源码学习”导航和侧栏，入口为 `/learn/`。已规划 12 个专题、60 篇课程（56 篇 Java 主线与 4 篇桌面进阶），另有目录和引用规范；课程正文初始为 Draft，逐篇完善并记录状态、日期和源码基线。目录与规范见[文档索引](../README.md)。
 - 学习章节使用小写 kebab-case 文件名和 `/learn/<slug>/` 永久链接。`tests/learning.test.mjs` 检查目录覆盖、源码路径和符号、原样节选一致性；桌面源码使用独立仓库链接，本站测试与构建不读取相邻桌面工作区。扩充课程总量时同步更新目录和维护测试。
 - Vdoing 配置说明通过首页页脚“历史站点资料”访问，使用独立侧栏并保留历史文档提示，不混入产品常见问题。`/blog/` 保留全文档索引。
 - 侧栏保留原生独立滚动，使用浅灰细滑块、透明轨道，悬停或键盘焦点进入时加深。Chromium/WebKit 下宽 5px 并隐藏箭头，其他浏览器采用标准细滚动条回退；底部留白为 24px，加上设备安全区。默认展开和正文滚动不受影响。
 - 新站提供本地中文搜索、代码复制、图片放大和明暗主题。搜索无需第三方服务。
-- `tests/fixtures/legacy-site.json` 是迁移时的原文与资源基线。后续有意修订原文时，应审查内容差异并同步对应哈希；不能通过更新基线绕过非预期删除或丢失。
-- 基线同时保留原始哈希和文本规范化哈希：Markdown、SVG、HTML 仅统一 CRLF/LF 后比较，二进制资源逐字节比较，使 Windows 与 Linux CI 一致。
-- `utils/editFrontmatter.js` 是保留的手动工具，依赖已显式声明；不在构建或 CI 中运行。
+- `tests/fixtures/legacy-site.json` 保留迁移时的原始文件与资源哈希，不覆盖历史依据。`authoring-compatibility.json` 在本次整理前从旧渲染器采集正文摘要和全部现有 ID，并记录与原始哈希的关联；测试检查正文、地址、标题和书签，允许补充原先缺少的文章总标题。
+- 静态资源按字节或 CRLF/LF 规范化哈希验证，渲染正文统一空白后比较，使 Windows 与 Linux CI 一致。有意修订原文时核对内容与来源，再更新受影响的兼容基线；不能只重写哈希以掩盖非预期丢失。
+- 格式检查覆盖全部文章的标题、列表、表格、代码围栏、图片说明等。中文长行、官方支持的 HTML/Vue、既有标题标点、代码中的有效空白和表格视觉填充不作强制排版；结构规则与表格单元格数量仍检查，代码节选正文不由格式工具改写。
+- `utils/editFrontmatter.js` 仅保留为旧批量工具，不在新增文章、构建或 CI 的流程中使用；普通文章不需要运行它。
 
 ## 根路径与子路径
 

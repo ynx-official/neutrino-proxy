@@ -15,10 +15,11 @@ export function buildRewrites(pages) {
   const routes = new Set()
   const rewrites = {}
   for (const page of pages) {
-    const route = normalizePermalink(page.route)
+    const route = page.route.endsWith('.html') ? normalizePermalink(page.route).slice(0, -1) : normalizePermalink(page.route)
     if (routes.has(route)) throw new Error(`Duplicate route: ${route}`)
     routes.add(route)
-    const destination = route === '/' ? 'index.md' : `${route.slice(1)}index.md`
+    const destination = route.endsWith('.html') ? `${route.slice(1, -5)}.md`
+      : route === '/' ? 'index.md' : `${route.slice(1)}index.md`
     if (destination !== page.source) rewrites[page.source] = destination
   }
   return rewrites

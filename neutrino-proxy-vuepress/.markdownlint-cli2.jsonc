@@ -1,0 +1,22 @@
+{
+  "globs": ["docs/**/*.md"],
+  "ignores": ["docs/.vitepress/**", "docs/public/**"],
+  "config": {
+    "default": true,
+    // Long Chinese prose, URLs and literal source excerpts do not use a line limit.
+    "MD013": false,
+    // Native VitePress permits HTML and Vue, including explicit legacy anchors.
+    "MD033": false,
+    // A frontmatter title and an explicit Markdown H1 describe the same article.
+    "MD025": { "front_matter_title": "" },
+    "MD024": { "siblings_only": true },
+    // Existing heading punctuation and meaningful code whitespace must stay intact.
+    "MD026": false,
+    "MD038": false,
+    "MD010": { "code_blocks": false },
+    // Table cell counts are checked; visual column padding is optional.
+    "MD060": false,
+    "MD004": { "style": "dash" },
+    "MD007": { "indent": 2 }
+  }
+}
