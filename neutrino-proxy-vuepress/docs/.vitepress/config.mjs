@@ -77,7 +77,11 @@ export default defineConfig({
         const page = pages.find(page =>
           state.env.relativePath?.replaceAll('\\', '/') === page.source ||
           (state.env.realPath || state.env.path)?.replaceAll('\\', '/').endsWith(`/${page.source}`))
-        if (!page || page.data.home) return
+        if (!page) return
+        // A style immediately after legacy HTML shares its block. Separate it so
+        // VitePress extracts an SFC style instead of leaving it in the template.
+        state.src = state.src.replace(/(<\/(?:div|table)>[ \t]*\r?\n)(?=<style(?:\s|>))/g, '$1\n')
+        if (page.data.home) return
         let prefix = /^# /m.test(page.content) ? '' : `# ${page.title}\n\n`
         if (page.source.startsWith('02.常见问题/')) {
           prefix += '::: info 历史主题文档\n以下为原 VuePress / Vdoing 配置说明，内容与旧链接保留供查阅；当前站点已迁移至 VitePress。\n:::\n\n'

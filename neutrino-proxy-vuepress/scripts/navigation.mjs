@@ -3,6 +3,7 @@ import { buildSidebar } from './content.mjs'
 export function buildNavigation(pages) {
   const roots = {
     docs: ['01.使用教程/'],
+    learning: ['07.源码学习/'],
     history: ['02.常见问题/'],
     support: ['03.支持我们/', '06.关于我们/'],
     examples: ['04.案例/'],
@@ -41,6 +42,7 @@ export function buildNavigation(pages) {
         entry('/pages/31d253/', '常见问题'),
       ],
     },
+    { ...entry('/learn/', '源码学习'), activeMatch: activeMatch('learning') },
     { ...entry('/pages/5d571c/', '案例'), activeMatch: activeMatch('examples') },
     {
       text: '支持', activeMatch: activeMatch('support'), items: [

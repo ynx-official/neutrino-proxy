@@ -13,7 +13,7 @@ test('each document sidebar contains only its section and preserves every articl
   const { sidebar } = buildNavigation(pages)
   const sections = [
     ['01.使用教程/'], ['02.常见问题/'], ['03.支持我们/', '06.关于我们/'],
-    ['04.案例/'], ['05.更新记录/'],
+    ['04.案例/'], ['05.更新记录/'], ['07.源码学习/'],
   ]
   for (const roots of sections) {
     const documents = pages.filter(page => roots.some(root => page.source.startsWith(root)))

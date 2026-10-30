@@ -144,6 +144,10 @@ test('desktop theme, code copy and image zoom', async ({ page, context }) => {
 test('home and missing page', async ({ page }) => {
   await page.goto('./')
   await expect(page.getByRole('link', { name: '开始使用', exact: true })).toBeVisible()
+  await expect(page.locator('vite-error-overlay')).toHaveCount(0)
+  const redisLogo = page.locator('.friends-item-img[src$="/redis-front.png"]')
+  await expect(redisLogo).toBeVisible()
+  await expect.poll(() => redisLogo.evaluate(image => image.complete && image.naturalWidth > 0)).toBe(true)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   const logos = page.locator('.friends-item-img')
   expect(await logos.count()).toBeGreaterThan(20)
